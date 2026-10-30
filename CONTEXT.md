@@ -89,6 +89,30 @@ Power supply -> INA219 (current/voltage sensor) -> logic-level MOSFET (on/off sw
 - **The scan runs only while power is off.** Disable the muxes before power-on so they do not interfere with the live circuit.
 - **Voltage limit is 5V or below** (limit of the mux chips).
 
+## 3b. The Notch (laptop display layer)
+
+A software overlay at the top of the MacBook screen, like the iPhone Dynamic Island. It warns the user when the wiring, the board or the circuit has a fault, and it shows how to fix it.
+
+### Behavior
+- Shows the breadboard state: PASS, SHORT, Power cut.
+- On a fault, shows one line of text (for example "Short: rows 3 and 7") and a fix instruction.
+- Optional animation, for example a highlight of the two rows that connect.
+
+### Rules
+- The Notch is a display only. The Arduino cuts power on its own. The safety cutoff must never depend on the Notch or the laptop.
+- The board knows only which rows connect. It does not know which part is wrong. Claude must combine the scan result with the circuit plan to write a correct fix.
+
+### Build order (animation last)
+1. No animation. A colored state (green, red) and one line of text.
+2. Add the fix text from Claude, based on the scan result and the circuit plan.
+3. Add the animation only if time remains.
+
+### Demo value
+The demo is 90 seconds with no slides. A judge cannot see a short circuit on a breadboard. The Notch makes the fault visible on the screen.
+
+### Open question
+- [ ] Native macOS window, or a web page styled as a notch? A web page is faster. A native window looks better on the demo laptop.
+
 ## 4. Parts and Prep
 
 - Philip likely has all required parts. Nobody needs to buy components.
@@ -101,7 +125,7 @@ Power supply -> INA219 (current/voltage sensor) -> logic-level MOSFET (on/off sw
 2. Write the Arduino firmware: scan, short detection, current and temperature limits, serial protocol.
 3. Write the MCP server: `check_wiring`, `power_on` (and likely a status tool).
 4. Prepare and coordinate the live demo (90 seconds, no slides).
-5. Build the Notch: a software overlay at the top of the MacBook screen, like the iPhone Dynamic Island. It shows the breadboard status (PASS, SHORT, Power cut) on the laptop screen.
+5. Build the Notch (see section 3b). Build the basic version first. Add animation last.
 6. Build the simulation fallback.
 7. Submission by 9:00 PM.
 
