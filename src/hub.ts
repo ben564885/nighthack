@@ -3,6 +3,7 @@ import { analyze } from './analysis.js';
 import type { Board, CircuitPlan, Finding, HubState } from './types.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const SCAN_FAILED = 'scan failed';
 
 export interface CheckResult {
   ok: boolean;
@@ -81,7 +82,8 @@ export class Hub extends EventEmitter {
       .then((links) => {
         // a command started meanwhile owns the state now
         if (this.busy || this.state.power) return;
-        if (JSON.stringify(links) === JSON.stringify(this.state.links)) return;
+        const same = JSON.stringify(links) === JSON.stringify(this.state.links);
+        if (same && this.state.headline !== SCAN_FAILED) return;
         this.applyScan(links);
       })
       .catch(() => {
@@ -126,7 +128,16 @@ export class Hub extends EventEmitter {
       // a check always compares against the plan, so it starts the project
       this.set({ phase: 'scanning', headline: 'scanning', cutReason: null, project: this.state.plan.name });
       await sleep(900); // long enough for the notch to play the scan animation
-      const findings = this.applyScan(await this.board.scan());
+      let links: HubState['links'];
+      try {
+        links = await this.board.scan();
+      } catch (e) {
+        // never leave the notch stuck on "scanning". the background scan retries.
+        const findings: Finding[] = [{ kind: 'stray', rows: [], severity: 'warn', message: `the board did not answer the scan (${(e as Error).message})`, fix: 'check the usb cable and that the bridge is running, then check again' }];
+        this.set({ phase: 'fault', headline: SCAN_FAILED, findings });
+        return { ok: false, findings };
+      }
+      const findings = this.applyScan(links);
       const ok = findings.length === 0;
       if (!ok) this.emit('alert', { kind: 'fault', findings });
       return { ok, findings };
