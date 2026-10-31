@@ -1,0 +1,36 @@
+name: deploy
+
+# every push to main goes live on https://breadboard.bennisevich.com through ./deploy.sh.
+# needs the DEPLOY_SSH_KEY secret (one-time setup in README.md). run it by hand from the actions tab to redeploy.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# one deploy at a time, in merge order
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ssh key for the droplet
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "$DEPLOY_SSH_KEY" ]; then echo "::error::DEPLOY_SSH_KEY is not set, see 'auto-deploy' in README.md"; exit 1; fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          # pinned droplet host key. if the droplet is rebuilt: ssh-keyscan -t ed25519 138.68.238.172
+          echo '138.68.238.172 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMd0TFQplnxmYQQVTfkT6RsC6ZFzSlP9ut9YgD/eB/fa' >> ~/.ssh/known_hosts
+
+      - name: deploy
+        run: ./deploy.sh
+
+      - name: live landing page is this commit's
+        run: curl -fsS -m 20 https://breadboard.bennisevich.com/ | cmp - site/index.html

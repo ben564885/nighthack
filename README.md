@@ -13,10 +13,23 @@ live at **https://breadboard.bennisevich.com** (digitalocean droplet, caddy for 
 | mcp for claude | `https://breadboard.bennisevich.com/mcp?key=$HUB_TOKEN` (see `.mcp.json`, set `HUB_TOKEN` in your shell) |
 | mac notch app | `mac/build.sh https://breadboard.bennisevich.com && open mac/SmartNotch.app` |
 | real arduino | on the laptop with the board: `CLOUD_URL=https://breadboard.bennisevich.com HUB_TOKEN=... npm run bridge` |
-| redeploy | `./deploy.sh` (never sends `.env`) |
+| redeploy | automatic on every merge to main (see auto-deploy below). by hand: `./deploy.sh` (never sends `.env`) |
 | logs | `ssh root@138.68.238.172 journalctl -u smart-breadboard -f` |
 
 without the bridge the hub runs the simulator, so the demo always works.
+
+### auto-deploy
+
+`.github/workflows/deploy.yml` runs `./deploy.sh` on every push to main, then checks that the live landing page matches the commit. each deploy restarts the hub (about 5 seconds offline). one-time setup, by the repo owner, from a machine that can already ssh to the droplet:
+
+```sh
+ssh-keygen -t ed25519 -N "" -C "github-actions deploy" -f /tmp/deploy_key
+ssh root@138.68.238.172 'cat >> ~/.ssh/authorized_keys' < /tmp/deploy_key.pub
+gh secret set DEPLOY_SSH_KEY -R ben564885/nighthack < /tmp/deploy_key
+rm /tmp/deploy_key /tmp/deploy_key.pub
+```
+
+then run the deploy workflow once from the actions tab (or merge anything to main).
 
 ## run locally (works with no hardware)
 
