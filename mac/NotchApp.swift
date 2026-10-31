@@ -4,11 +4,18 @@
 import Cocoa
 import WebKit
 
-final class Overlay: NSObject, NSApplicationDelegate {
+/// a click on the open notch should press its button, not just wake the window
+final class ClickWeb: WKWebView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
+final class Overlay: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var window: NSPanel!
     var web: WKWebView!
     let base: String
     var inside = false
+    var pageOpen = false                         // the page reports it, see userContentController
+    var notch = NSSize(width: 200, height: 34)   // hardware notch size, set in layout()
     var tracker: Timer?
 
     init(base: String) { self.base = base }
@@ -20,10 +27,12 @@ final class Overlay: NSObject, NSApplicationDelegate {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.level = .screenSaver              // above the menu bar
-        window.ignoresMouseEvents = true         // never steals a click
+        window.ignoresMouseEvents = true         // click-through, except over the open notch
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
-        web = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(self, name: "notch")
+        web = ClickWeb(frame: .zero, configuration: config)
         web.setValue(false, forKey: "drawsBackground")
         web.underPageBackgroundColor = .clear
         window.contentView = web
@@ -33,15 +42,25 @@ final class Overlay: NSObject, NSApplicationDelegate {
         layout()
         window.orderFrontRegardless()
 
-        // the window is click-through, so it gets no mouse events. poll the pointer
+        // the window is mostly click-through, so it gets no mouse events. poll the pointer
         // (no permission needed) and tell the page when it enters or leaves the notch area.
         tracker = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in self?.trackMouse() }
     }
 
+    /// the page posts {open: bool} whenever it opens or closes
+    func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
+        if let body = message.body as? [String: Any], let open = body["open"] as? Bool { pageOpen = open }
+    }
+
     func trackMouse() {
         let f = window.frame
-        let area = NSRect(x: f.midX - 230, y: f.maxY - 250, width: 460, height: 250)
+        // closed: only the notch itself wakes it (hover to peek). open: the whole panel.
+        let area = pageOpen
+            ? NSRect(x: f.midX - 230, y: f.maxY - 330, width: 460, height: 330)
+            : NSRect(x: f.midX - notch.width / 2 - 10, y: f.maxY - notch.height - 4, width: notch.width + 20, height: notch.height + 4)
         let now = area.contains(NSEvent.mouseLocation)
+        // take clicks only over the open notch, so the menu bar and apps below keep working
+        window.ignoresMouseEvents = !(pageOpen && now)
         if now != inside {
             inside = now
             web.evaluateJavaScript("window.notchHover && window.notchHover(\(now))", completionHandler: nil)
@@ -62,13 +81,15 @@ final class Overlay: NSObject, NSApplicationDelegate {
             nw = f.width - l.width - r.width
         }
         if nh == 0 { nw = 0 }                    // no notch: the page draws its own small pill
+        notch = nw > 0 ? NSSize(width: nw, height: nh) : NSSize(width: 188, height: 34)
 
-        let width: CGFloat = 520, height: CGFloat = 300
+        let width: CGFloat = 520, height: CGFloat = 360
         window.setFrame(NSRect(x: f.midX - width / 2, y: f.maxY - height, width: width, height: height), display: true)
 
         var q = "native=1&overlay=1"
         if nw > 0 { q += "&nw=\(Int(nw.rounded()))&nh=\(Int(nh.rounded()))" }
-        if let key = ProcessInfo.processInfo.environment["HUB_TOKEN"] { q += "&key=\(key)" }
+        let key = ProcessInfo.processInfo.environment["HUB_TOKEN"] ?? Bundle.main.object(forInfoDictionaryKey: "HubToken") as? String
+        if let key, !key.isEmpty { q += "&key=\(key)" }
         if let url = URL(string: "\(base)/notch?\(q)") { web.load(URLRequest(url: url)) }
     }
 }

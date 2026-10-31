@@ -13,6 +13,10 @@ export interface CheckResult {
 export class Hub extends EventEmitter {
   state: HubState;
   private poll?: NodeJS.Timeout;
+  private watch?: NodeJS.Timeout;
+  /** commands in progress. the background scan never runs alongside one. */
+  private busy = 0;
+  private inflight: Promise<void> | null = null;
 
   constructor(
     readonly board: Board,
@@ -28,6 +32,7 @@ export class Hub extends EventEmitter {
       telemetry: { mv: 0, ma: 0, tc: 0 },
       cutReason: null,
       plan,
+      project: null,
       updatedAt: Date.now(),
       mode: board.mode,
     };
@@ -51,40 +56,102 @@ export class Hub extends EventEmitter {
     this.emit('state', this.state);
   }
 
-  async checkWiring(): Promise<CheckResult> {
-    if (this.state.power) {
-      return { ok: false, findings: [{ kind: 'stray', rows: [], severity: 'warn', message: 'power is on, so the board cannot scan', fix: 'cut the power first' }] };
+  /** runs a command with the background scan paused, after any scan already on the wire */
+  private async exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    this.busy++;
+    try {
+      await this.inflight;
+      return await fn();
+    } finally {
+      this.busy--;
     }
-    this.set({ phase: 'scanning', headline: 'scanning', cutReason: null });
-    await sleep(900); // long enough for the notch to play the scan animation
-    const links = await this.board.scan();
+  }
+
+  /** rescan the board every `ms` while power is off, so the notch always shows the real wiring */
+  startWatch(ms: number) {
+    clearInterval(this.watch);
+    if (ms > 0) this.watch = setInterval(() => this.backgroundScan(), ms);
+  }
+
+  private backgroundScan() {
+    const s = this.state;
+    if (this.busy || this.inflight || s.power || s.phase === 'cut' || s.phase === 'scanning') return;
+    this.inflight = this.board
+      .scan()
+      .then((links) => {
+        // a command started meanwhile owns the state now
+        if (this.busy || this.state.power) return;
+        if (JSON.stringify(links) === JSON.stringify(this.state.links)) return;
+        this.applyScan(links);
+      })
+      .catch(() => {
+        /* a missed scan is not a fault. the next one runs shortly. */
+      })
+      .finally(() => {
+        this.inflight = null;
+      });
+  }
+
+  /** watch mode lists the links. project mode compares them to the plan. */
+  private applyScan(links: HubState['links']) {
+    if (!this.state.project) {
+      const n = links.length;
+      this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links });
+      return [];
+    }
     const findings = analyze(this.state.plan, links);
     const ok = findings.length === 0;
-    this.set({
-      phase: ok ? 'pass' : 'fault',
-      headline: ok ? 'all clear' : findings[0].message,
-      findings,
-      links,
+    this.set({ phase: ok ? 'pass' : 'fault', headline: ok ? 'all clear' : findings[0].message, findings, links });
+    return findings;
+  }
+
+  /** start the demo project (the loaded plan), or go back to watching the bare board */
+  setProject(on: boolean) {
+    return this.exclusive(async () => {
+      if (on) {
+        this.set({ project: this.state.plan.name });
+        return this.checkWiring();
+      }
+      this.set({ project: null });
+      if (!this.state.power) this.applyScan(this.state.links);
+      return { ok: true, findings: [] };
     });
-    if (!ok) this.emit('alert', { kind: 'fault', findings });
-    return { ok, findings };
   }
 
-  async powerOn(): Promise<CheckResult & { powered: boolean }> {
-    if (this.state.power) return { ok: true, findings: [], powered: true };
-    const check = await this.checkWiring();
-    if (!check.ok) return { ...check, powered: false };
-    await this.board.setPower(true);
-    this.set({ phase: 'powered', headline: 'power on', power: true });
-    this.startPolling();
-    return { ...check, powered: true };
+  checkWiring(): Promise<CheckResult> {
+    return this.exclusive(async () => {
+      if (this.state.power) {
+        return { ok: false, findings: [{ kind: 'stray', rows: [], severity: 'warn', message: 'power is on, so the board cannot scan', fix: 'cut the power first' }] };
+      }
+      // a check always compares against the plan, so it starts the project
+      this.set({ phase: 'scanning', headline: 'scanning', cutReason: null, project: this.state.plan.name });
+      await sleep(900); // long enough for the notch to play the scan animation
+      const findings = this.applyScan(await this.board.scan());
+      const ok = findings.length === 0;
+      if (!ok) this.emit('alert', { kind: 'fault', findings });
+      return { ok, findings };
+    });
   }
 
-  async powerOff(reason = 'manual') {
-    clearInterval(this.poll);
-    await this.board.setPower(false);
-    this.set({ phase: 'idle', headline: 'power off', power: false, cutReason: null, findings: [] });
-    this.emit('log', `power off (${reason})`);
+  powerOn(): Promise<CheckResult & { powered: boolean }> {
+    return this.exclusive(async () => {
+      if (this.state.power) return { ok: true, findings: [], powered: true };
+      const check = await this.checkWiring();
+      if (!check.ok) return { ...check, powered: false };
+      await this.board.setPower(true);
+      this.set({ phase: 'powered', headline: 'power on', power: true });
+      this.startPolling();
+      return { ...check, powered: true };
+    });
+  }
+
+  powerOff(reason = 'manual') {
+    return this.exclusive(async () => {
+      clearInterval(this.poll);
+      await this.board.setPower(false);
+      this.set({ phase: 'idle', headline: 'power off', power: false, cutReason: null, findings: [] });
+      this.emit('log', `power off (${reason})`);
+    });
   }
 
   private startPolling() {

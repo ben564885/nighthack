@@ -1,6 +1,8 @@
 #!/bin/sh
 # usage: mac/build.sh [hub-url]   ->  mac/SmartNotch.app
 # the url is baked in, so double-clicking the app works with no arguments.
+# HUB_TOKEN=... mac/build.sh <url> also bakes the token in, so the notch buttons work.
+# the .app is git-ignored, so the token stays on this machine.
 set -e
 cd "$(dirname "$0")"
 URL="${1:-http://localhost:3000}"
@@ -17,6 +19,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSUIElement</key><true/>
   <key>NotchURL</key><string>$URL</string>
+  <key>HubToken</key><string>${HUB_TOKEN:-}</string>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 </dict></plist>
 PLIST

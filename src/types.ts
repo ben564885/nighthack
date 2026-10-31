@@ -37,6 +37,8 @@ export interface HubState {
   telemetry: Telemetry;
   cutReason: string | null;
   plan: CircuitPlan;
+  /** name of the active project, or null in watch mode (show live links, compare to nothing) */
+  project: string | null;
   updatedAt: number;
   mode: 'sim' | 'serial';
 }

@@ -119,6 +119,20 @@
   .live span { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .live span i { font-style: normal; font-size: 11px; color: var(--dim); margin-left: 2px; }
 
+  /* watch mode: live links, and the project checklist */
+  body[data-phase="idle"][data-links="true"] { --accent: var(--scan); }
+  .strip .arc.link { stroke: var(--scan); }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 4px; }
+  .chips span { font-size: 11.5px; font-variant-numeric: tabular-nums; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--dim); }
+  .chips .lbl { background: none; padding-left: 0; }
+  .chips .ok { color: var(--ok); background: rgba(50,215,75,.13); }
+  .chips .miss { color: var(--warn); background: rgba(255,179,64,.13); }
+  .acts { display: flex; gap: 8px; margin-top: 10px; }
+  .acts button { font: inherit; font-size: 12px; color: var(--ink); background: rgba(255,255,255,.1); border: 0; padding: 6px 13px; border-radius: 999px; cursor: pointer; transition: background .2s; }
+  .acts button:hover { background: rgba(255,255,255,.18); }
+  .acts button.primary { background: var(--scan); color: #000; font-weight: 600; }
+  .acts button.primary:hover { background: #8fe0ff; }
+
   body[data-phase="cut"] .notch, body[data-critical="true"] .notch { animation: shake .45s; }
   @keyframes shake { 20% { transform: translateX(-50%) translateX(-5px); } 40% { transform: translateX(-50%) translateX(5px); } 60% { transform: translateX(-50%) translateX(-3px); } 80% { transform: translateX(-50%) translateX(2px); } }
 
@@ -195,7 +209,7 @@ function strip(state, hot, arcs, allOk = false) {
     for (let i = 0; i < a.rows.length - 1; i++) {
       const x1 = rowX(a.rows[i]), x2 = rowX(a.rows[i + 1]);
       const mid = (x1 + x2) / 2, lift = Math.max(10, Math.min(46, Math.abs(x2 - x1) * 0.55));
-      s += `<path class="arc ${a.kind === 'missing' ? 'missing' : ''}" style="animation-delay:${0.15 + i * 0.18}s" d="M${x1} 26 Q${mid} ${26 - lift} ${x2} 26"/>`;
+      s += `<path class="arc ${a.kind === 'missing' ? 'missing' : a.kind === 'link' ? 'link' : ''}" style="animation-delay:${0.15 + i * 0.18}s" d="M${x1} 26 Q${mid} ${26 - lift} ${x2} 26"/>`;
     }
   }
   return s + `</svg>`;
@@ -203,48 +217,98 @@ function strip(state, hot, arcs, allOk = false) {
 
 // ---- auto-dismiss: closes after 15 s, or when the pointer goes onto the notch and then off.
 // a new event (phase or findings change) opens it again.
+// a new event (phase, findings, links or project change) opens it again. hovering the closed
+// notch peeks at the current board.
 const DISMISS_MS = 15000;
-let lastState = null, stateSig = '', dismissed = false, hovered = false, timer = null;
-const isOpen = () => document.body.dataset.open === 'true';
-function dismiss() {
-  clearTimeout(timer);
-  dismissed = true;
-  if (lastState) render(lastState);
+let lastState = null, stateSig = '', open = false, hovered = false, timer = null, first = true;
+const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.notch;
+function setOpen(v) {
+  if (v === open) return;
+  open = v;
+  document.body.dataset.open = String(v);
+  if (native) native.postMessage({ open: v });   // the app only takes clicks while open
 }
-// the native app calls this from its mouse tracker (the window is click-through)
+function closeLater() {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (!hovered) setOpen(false); }, DISMISS_MS);
+}
+// the native app calls this from its mouse tracker
 window.notchHover = (inside) => {
-  if (inside && isOpen()) { hovered = true; clearTimeout(timer); }
-  else if (!inside && hovered) { hovered = false; dismiss(); }
+  if (inside) {
+    hovered = true;
+    clearTimeout(timer);
+    if (!open && lastState) setOpen(true);
+  } else if (hovered) {
+    hovered = false;
+    setOpen(false);
+  }
 };
 document.getElementById('notch').addEventListener('mouseenter', () => window.notchHover(true));
 document.getElementById('notch').addEventListener('mouseleave', () => window.notchHover(false));
 
+const DEMO = params.has('demo');
+const post = (path, body) => fetch(path, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', ...(KEY ? { 'x-hub-token': KEY } : {}) },
+  body: body ? JSON.stringify(body) : undefined,
+}).catch(() => {});
+const ACTIONS = {
+  demo: () => post('/api/project', { on: true }),
+  exit: () => post('/api/project', { on: false }),
+  check: () => post('/api/check'),
+  off: () => post('/api/power-off'),
+};
+$('bodyEl').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (b) ACTIONS[b.dataset.act]();
+});
+
+const linked = (links, a, b) => (links || []).some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+// the project's required links, ticked off as they appear on the board
+function planChips(st) {
+  if (!st.project || !st.plan || !st.plan.links) return '';
+  return `<div class="chips"><span class="lbl">${esc(st.project)}</span>` +
+    st.plan.links.map(([a, b]) => linked(st.links, a, b) ? `<span class="ok">✓ ${a}–${b}</span>` : `<span class="miss">○ ${a}–${b}</span>`).join('') + `</div>`;
+}
+function acts(st) {
+  if (DEMO) return '';
+  if (st.power) return `<div class="acts"><button data-act="off">power off</button></div>`;
+  if (st.project) return `<div class="acts"><button data-act="check">check again</button><button data-act="exit">exit project</button></div>`;
+  return `<div class="acts"><button class="primary" data-act="demo">demo project</button></div>`;
+}
+const EXTRA = 66;   // height of the checklist + buttons rows
+
 let last = '';
 function render(st) {
   lastState = st;
-  const sigNow = st.phase + JSON.stringify(st.findings);
+  const links = st.links || [];
+  const sigNow = JSON.stringify([st.phase, st.findings, links, st.project]);
   if (sigNow !== stateSig) {
     stateSig = sigNow;
-    dismissed = false;
-    hovered = false;
-    clearTimeout(timer);
-    if (st.phase !== 'idle' && st.phase !== 'scanning') timer = setTimeout(dismiss, DISMISS_MS);
+    // stay closed on a quiet start: nothing wired, no project, nothing happened
+    const quiet = first && st.phase === 'idle' && !links.length && !st.project;
+    first = false;
+    if (DEMO) setOpen(st.phase !== 'idle');   // landing page loop: idle means closed
+    else if (!quiet) {
+      setOpen(true);
+      if (st.phase !== 'scanning') closeLater();
+    }
   }
   const faulty = st.phase === 'fault' || st.phase === 'cut';
   const critical = st.findings.some((f) => f.severity === 'critical') || st.phase === 'cut';
-  const open = st.phase !== 'idle' && !dismissed;
   document.body.dataset.phase = st.phase;
   document.body.dataset.critical = String(critical && faulty);
-  document.body.dataset.open = String(open);
+  document.body.dataset.links = String(links.length > 0);
 
   $('title').textContent = st.phase === 'fault' ? (critical ? 'danger: do not power on' : 'wiring issue') : st.headline;
   $('meta').textContent =
     st.phase === 'powered' ? (st.telemetry.sensed === false ? 'on' : `${(st.telemetry.mv / 1000).toFixed(2)} v`) :
     st.phase === 'fault' ? `${st.findings.length} issue${st.findings.length === 1 ? '' : 's'}` :
+    st.phase === 'idle' && !st.project ? (st.mode === 'sim' ? 'live · sim' : 'live') :
     st.mode === 'sim' ? 'sim' : '';
 
   // rebuild the body only when the content changes, so animations are not restarted
-  const sig = JSON.stringify([st.phase, st.findings, st.phase === 'powered' ? Math.round(st.telemetry.ma / 5) : 0]);
+  const sig = JSON.stringify([st.phase, st.findings, links, st.project, st.power, st.phase === 'powered' ? Math.round(st.telemetry.ma / 5) : 0]);
   if (sig === last) return;
   last = sig;
 
@@ -264,15 +328,17 @@ function render(st) {
           <path class="tick" d="M13 23 l7 7 l12 -14"/>
         </svg>
         <div class="txt"><div class="msg">no faults found</div><div class="fix">wiring matches the plan. safe to power on.</div></div>
-      </div>`;
-    h = 168;
+      </div>` + planChips(st) + acts(st);
+    h = 168 + (DEMO ? 0 : EXTRA);
   } else if (faulty) {
     const f = st.findings[0];
     html = strip(st, hot, arcs) +
       `<div class="msg">${esc(f.message)}</div><div class="fix"><b>fix</b> ${esc(f.fix)}</div>` +
-      (st.findings.length > 1 ? `<div class="fix" style="margin-top:6px">and ${st.findings.length - 1} more</div>` : '');
+      (st.findings.length > 1 ? `<div class="fix" style="margin-top:6px">and ${st.findings.length - 1} more</div>` : '') +
+      planChips(st) + acts(st);
     h = st.findings.length > 1 ? 200 : 180;
     if (st.phase === 'cut') h = 172;
+    if (!DEMO) h += st.project && st.phase !== 'cut' ? EXTRA : 38;
   } else if (st.phase === 'powered') {
     const t = st.telemetry;
     if (t.sensed === false) {
@@ -291,6 +357,17 @@ function render(st) {
         <div class="fix" style="margin-top:10px">watching voltage, current and temperature.</div>`;
       h = 150;
     }
+    html += acts(st);
+    if (!DEMO) h += 38;
+  } else if (st.phase === 'idle') {
+    // watch mode: every connection the board sees right now, rescanned every couple of seconds
+    const arcs = links.map(([a, b]) => ({ kind: 'link', rows: [a, b] }));
+    html = strip(st, new Set(links.flat()), arcs);
+    if (st.project) html += planChips(st);
+    else if (links.length) html += `<div class="chips">${links.map(([a, b]) => `<span>${a}–${b}</span>`).join('')}</div>`;
+    else html += `<div class="fix">wire a jumper between two rows and it shows up here</div>`;
+    html += acts(st);
+    h = 34 + 76 + 28 + (DEMO ? 0 : 38) + 12;
   }
   $('bodyEl').innerHTML = html;
   $('notch').style.setProperty('--h', h + NH + 'px');

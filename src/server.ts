@@ -28,6 +28,8 @@ if (config.boardMode === 'serial') {
   board = new SwitchBoard(sim);
 }
 const hub = new Hub(board, plan);
+// keep the notch's wiring map live while power is off. AUTO_SCAN_MS=0 turns it off.
+hub.startWatch(Number(process.env.AUTO_SCAN_MS ?? 1500));
 const token = process.env.HUB_TOKEN ?? '';
 // never run in production with the control routes open
 if (process.env.NODE_ENV === 'production' && !token) throw new Error('HUB_TOKEN is required in production');
@@ -134,6 +136,7 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, hub.state);
     if (req.method === 'POST' && url.pathname === '/api/check') return json(res, 200, await hub.checkWiring());
+    if (req.method === 'POST' && url.pathname === '/api/project') return json(res, 200, await hub.setProject(Boolean((await readBody(req)).on)));
     if (req.method === 'POST' && url.pathname === '/api/power-on') return json(res, 200, await hub.powerOn());
     if (req.method === 'POST' && url.pathname === '/api/power-off') {
       await hub.powerOff('api');
