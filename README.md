@@ -4,15 +4,15 @@ ai-checked wiring. scan before power-on, cut power on any fault, warn on the mac
 
 ## production
 
-live at **https://138-68-238-172.sslip.io** (digitalocean droplet, caddy for https, systemd keeps the hub up).
+live at **https://breadboard.bennisevich.com** (digitalocean droplet, caddy for https, systemd keeps the hub up).
 
 | what | how |
 |---|---|
 | landing page | `/` |
 | notch page | `/notch` |
-| mcp for claude | `https://138-68-238-172.sslip.io/mcp?key=$HUB_TOKEN` (see `.mcp.json`, set `HUB_TOKEN` in your shell) |
-| mac notch app | `mac/build.sh https://138-68-238-172.sslip.io && open mac/SmartNotch.app` |
-| real arduino | on the laptop with the board: `CLOUD_URL=https://138-68-238-172.sslip.io HUB_TOKEN=... npm run bridge` |
+| mcp for claude | `https://breadboard.bennisevich.com/mcp?key=$HUB_TOKEN` (see `.mcp.json`, set `HUB_TOKEN` in your shell) |
+| mac notch app | `mac/build.sh https://breadboard.bennisevich.com && open mac/SmartNotch.app` |
+| real arduino | on the laptop with the board: `CLOUD_URL=https://breadboard.bennisevich.com HUB_TOKEN=... npm run bridge` |
 | redeploy | `./deploy.sh` (never sends `.env`) |
 | logs | `ssh root@138.68.238.172 journalctl -u smart-breadboard -f` |
 

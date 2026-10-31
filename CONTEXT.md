@@ -176,7 +176,7 @@ The Mac shows the Notch. A Photon iMessage agent also sends a text to the user. 
 
 ## 3d. Build Status (software)
 
-**Production:** https://138-68-238-172.sslip.io (landing page at `/`). Runs on the team's DigitalOcean droplet. Details and commands are in `README.md`. The secret `HUB_TOKEN` is not in git: ask Ben.
+**Production:** https://breadboard.bennisevich.com (landing page at `/`). Runs on the team's DigitalOcean droplet. Details and commands are in `README.md`. The secret `HUB_TOKEN` is not in git: ask Ben.
 
 Built and tested in simulation. See `README.md` for how to run.
 

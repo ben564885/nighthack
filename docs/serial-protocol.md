@@ -72,7 +72,7 @@ closes the websocket (the hub falls back to the simulator and shows "board disco
 retries every 2 seconds.
 
 ```sh
-CLOUD_URL=https://138-68-238-172.sslip.io HUB_TOKEN=... npm run bridge
+CLOUD_URL=https://breadboard.bennisevich.com HUB_TOKEN=... npm run bridge
 VERBOSE=1 ...            # log every line
 SERIAL_PORT=/dev/cu.usbserial-0001 ...   # pick a port by hand
 ```

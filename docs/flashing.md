@@ -69,7 +69,7 @@ the full command list is in [serial-protocol.md](serial-protocol.md).
 ## 6. connect it to the cloud (so the notch and claude see it)
 
 ```sh
-CLOUD_URL=https://138-68-238-172.sslip.io HUB_TOKEN=<ask Ben> npm run bridge
+CLOUD_URL=https://breadboard.bennisevich.com HUB_TOKEN=<ask Ben> npm run bridge
 ```
 
 close `npm run serial` first. only one program can hold the usb port.
