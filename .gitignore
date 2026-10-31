@@ -5,3 +5,4 @@ node_modules/
 .DS_Store
 .playwright-mcp/
 .photon-state.json
+mac/SmartNotch.app

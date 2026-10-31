@@ -10,9 +10,21 @@ cp .env.example .env     # fill in keys
 npm run hub              # sim board + notch at http://localhost:3000
 ```
 
-- open `http://localhost:3000/?dev` (or press `d`) for the demo panel: check, power on, break the build, fix it, overload.
+- `/` is the landing page (a self-running walk-around). `/notch` is the notch page.
+- open `http://localhost:3000/notch?dev` (or press `d`) for the demo panel: check, power on, break the build, fix it, overload.
 - `?overlay` makes the page background transparent.
 - claude code picks up `.mcp.json`, so `check_wiring`, `power_on`, `power_off`, `get_status` are available as tools (the hub must be running).
+
+## the notch on your mac
+
+```sh
+mac/build.sh https://YOUR-HUB-URL     # builds mac/SmartNotch.app with the url baked in
+open mac/SmartNotch.app               # no dock icon. quit with: pkill SmartNotch
+```
+
+a transparent, click-through window pinned to the real hardware notch (size read from macos).
+it is invisible until something needs you, then grows downward. it closes after 15 seconds,
+or when the pointer goes onto it and then off. a new event opens it again.
 
 ## real board
 
@@ -34,7 +46,10 @@ relay instead of mosfet: edit `POWER_ACTIVE_LEVEL` and `POWER_SETTLE_MS` at the 
 | `src/mcp.ts` | mcp tools for claude |
 | `src/photon.ts`, `src/agent.ts` | two-way imessage agent |
 | `src/voice.ts` | outbound call for serious faults |
-| `notch/index.html` | the notch ui |
+| `notch/index.html` | the notch ui (served at `/notch`) |
+| `mac/` | native notch app (swift) |
+| `site/` | landing page and its art |
+| `src/bridge.ts` | runs on the laptop, passes arduino serial to the cloud hub |
 | `circuits/*.json` | the circuit plan: rails, required links, current limit |
 
 ## photon

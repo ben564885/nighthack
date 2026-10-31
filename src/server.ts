@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { extname, normalize, join } from 'node:path';
 import { config, loadPlan } from './config.js';
 import { Hub } from './hub.js';
 import { SimBoard } from './board/sim.js';
@@ -98,7 +99,18 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/') {
       res.writeHead(200, { 'content-type': 'text/html' });
+      return res.end(readFileSync(new URL('../site/index.html', import.meta.url)));
+    }
+    if (req.method === 'GET' && url.pathname === '/notch') {
+      res.writeHead(200, { 'content-type': 'text/html' });
       return res.end(notchHtml());
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/assets/')) {
+      const file = join(new URL('../site/assets', import.meta.url).pathname, normalize(url.pathname.slice(8)).replace(/^(\.\.[/\\])+/, ''));
+      if (!existsSync(file)) return json(res, 404, { error: 'not found' });
+      const types: Record<string, string> = { '.woff2': 'font/woff2', '.js': 'text/javascript', '.txt': 'text/plain', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml' };
+      res.writeHead(200, { 'content-type': types[extname(file)] ?? 'application/octet-stream', 'cache-control': 'public, max-age=86400' });
+      return res.end(readFileSync(file));
     }
     if (req.method === 'GET' && url.pathname === '/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });

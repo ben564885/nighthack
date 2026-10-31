@@ -27,11 +27,20 @@
   }
   body.overlay { background: transparent; }
 
+  /* native mode: the page sits in a transparent window over the real hardware notch.
+     closed = exactly the hardware notch, so it is invisible. open = grows downward. */
+  body.native { background: transparent; }
+  body.native .notch { border-radius: 0 0 9px 9px; }
+  body.native[data-open="false"] .notch { box-shadow: none; }
+  body.native[data-open="false"] .notch::before, body.native[data-open="false"] .notch::after { display: none; }
+  body.native[data-open="true"] .notch { border-radius: 0 0 28px 28px; }
+  body.native .hint { display: none; }
+
   /* ---------- the notch ---------- */
   .notch {
     position: fixed; top: 0; left: 50%;
     transform: translateX(-50%);
-    width: 188px; height: 34px;
+    width: var(--nw, 188px); height: var(--nh, 34px);
     background: #000;
     border-radius: 0 0 20px 20px;
     transition: width .55s var(--ease), height .55s var(--ease), border-radius .55s var(--ease);
@@ -44,7 +53,7 @@
   .notch::before { left: -16px; background: radial-gradient(circle at 0 100%, transparent 15.5px, #000 16px); }
   .notch::after  { right: -16px; background: radial-gradient(circle at 100% 100%, transparent 15.5px, #000 16px); }
 
-  .inner { overflow: hidden; width: 100%; height: 100%; border-radius: inherit; padding: 0 16px; }
+  .inner { overflow: hidden; width: 100%; height: 100%; border-radius: inherit; padding: var(--pt, 0px) 16px 0; }
 
   body[data-open="true"] .notch { width: 440px; height: var(--h, 172px); border-radius: 0 0 28px 28px; }
 
@@ -107,7 +116,7 @@
   }
   .dev button:hover { background: rgba(255,255,255,.16); }
   .hint { position: fixed; bottom: 14px; width: 100%; text-align: center; color: rgba(255,255,255,.22); font-size: 11px; }
-  body.dev .hint { display: none; }
+  body.dev .hint, body.nohint .hint { display: none; }
 </style>
 </head>
 <body data-phase="idle" data-open="false">
@@ -139,7 +148,17 @@
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 if (params.has('overlay')) document.body.classList.add('overlay');
+const NH = Number(params.get('nh')) || 0, NW = Number(params.get('nw')) || 0;
+if (params.has('native')) {
+  document.body.classList.add('native');
+  if (NW && NH) {
+    document.documentElement.style.setProperty('--nw', NW + 'px');
+    document.documentElement.style.setProperty('--nh', NH + 'px');
+    document.documentElement.style.setProperty('--pt', NH + 'px');   // content hangs below the hardware notch
+  }
+}
 if (params.has('dev')) document.body.classList.add('dev');
+if (params.has('demo')) document.body.classList.add('nohint');
 addEventListener('keydown', (e) => { if (e.key === 'd') document.body.classList.toggle('dev'); });
 const KEY = params.get('key') || '';
 document.querySelectorAll('[data-go]').forEach((b) =>
@@ -167,11 +186,38 @@ function strip(state, hot, arcs) {
   return s + `</svg>`;
 }
 
+// ---- auto-dismiss: closes after 15 s, or when the pointer goes onto the notch and then off.
+// a new event (phase or findings change) opens it again.
+const DISMISS_MS = 15000;
+let lastState = null, stateSig = '', dismissed = false, hovered = false, timer = null;
+const isOpen = () => document.body.dataset.open === 'true';
+function dismiss() {
+  clearTimeout(timer);
+  dismissed = true;
+  if (lastState) render(lastState);
+}
+// the native app calls this from its mouse tracker (the window is click-through)
+window.notchHover = (inside) => {
+  if (inside && isOpen()) { hovered = true; clearTimeout(timer); }
+  else if (!inside && hovered) { hovered = false; dismiss(); }
+};
+document.getElementById('notch').addEventListener('mouseenter', () => window.notchHover(true));
+document.getElementById('notch').addEventListener('mouseleave', () => window.notchHover(false));
+
 let last = '';
 function render(st) {
+  lastState = st;
+  const sigNow = st.phase + JSON.stringify(st.findings);
+  if (sigNow !== stateSig) {
+    stateSig = sigNow;
+    dismissed = false;
+    hovered = false;
+    clearTimeout(timer);
+    if (st.phase !== 'idle' && st.phase !== 'scanning') timer = setTimeout(dismiss, DISMISS_MS);
+  }
   const faulty = st.phase === 'fault' || st.phase === 'cut';
   const critical = st.findings.some((f) => f.severity === 'critical') || st.phase === 'cut';
-  const open = st.phase !== 'idle';
+  const open = st.phase !== 'idle' && !dismissed;
   document.body.dataset.phase = st.phase;
   document.body.dataset.critical = String(critical && faulty);
   document.body.dataset.open = String(open);
@@ -214,7 +260,7 @@ function render(st) {
     h = 150;
   }
   $('bodyEl').innerHTML = html;
-  $('notch').style.setProperty('--h', h + 'px');
+  $('notch').style.setProperty('--h', h + NH + 'px');
 }
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -223,7 +269,41 @@ function connect() {
   es.onmessage = (e) => render(JSON.parse(e.data));
   es.onerror = () => { es.close(); setTimeout(connect, 1500); };
 }
-connect();
+if (params.has('demo')) {
+  // scripted loop for the landing page. no hub needed.
+  const plan = { name: 'sensor hookup' };
+  const base = { links: [], power: false, telemetry: { mv: 0, ma: 0, tc: 0 }, cutReason: null, plan, mode: 'sim' };
+  const F = (kind, rows, severity, message, fix) => ({ kind, rows, severity, message, fix });
+  const steps = [
+    [1400, { phase: 'idle', headline: 'ready', findings: [] }],
+    [1700, { phase: 'scanning', headline: 'scanning', findings: [] }],
+    [4200, { phase: 'fault', headline: '', findings: [
+      F('rail_short', [1, 5, 6, 2], 'critical', '5v is connected to gnd (rows 1 \u2192 5 \u2192 6 \u2192 2)', 'remove the wire between row 5 and row 6'),
+      F('missing', [7, 10], 'warn', 'row 7 and row 10 are not connected', 'add a jumper from row 7 to row 10')] }],
+    [1500, { phase: 'scanning', headline: 'scanning', findings: [] }],
+    [3200, { phase: 'fault', headline: '', findings: [F('missing', [7, 10], 'warn', 'row 7 and row 10 are not connected', 'add a jumper from row 7 to row 10')] }],
+    [1400, { phase: 'scanning', headline: 'scanning', findings: [] }],
+    [2400, { phase: 'pass', headline: 'all clear', findings: [] }],
+    [3400, { phase: 'powered', headline: 'power on', power: true, findings: [], live: true }],
+    [3800, { phase: 'cut', headline: 'power cut', cutReason: 'too much current', findings: [F('rail_short', [], 'critical', 'power cut: too much current', 'leave the power off, then run a wiring check to find the cause')] }],
+  ];
+  let i = 0;
+  const play = () => {
+    const [hold, st] = steps[i % steps.length];
+    const t0 = performance.now();
+    const tick = () => {
+      const live = st.live ? { mv: 4980, ma: 52 + Math.round(8 * Math.sin((performance.now() - t0) / 300)), tc: 26 } : base.telemetry;
+      render({ ...base, ...st, telemetry: live });
+      if (performance.now() - t0 < hold) setTimeout(tick, st.live ? 250 : hold);
+    };
+    tick();
+    i++;
+    setTimeout(play, hold);
+  };
+  play();
+} else {
+  connect();
+}
 </script>
 </body>
 </html>

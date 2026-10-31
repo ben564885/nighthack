@@ -152,7 +152,10 @@ Built and tested in simulation. See `README.md` for how to run.
 |---|---|
 | Analysis (shorts, rail short, missing links) | done, tested |
 | Hub + sim board + demo panel | done, tested |
-| Notch UI (web page, arcs, live readings) | done, checked in browser |
+| Notch UI (web page, arcs, live readings, auto-close after 15 s or on hover off) | done, checked in browser |
+| Native Mac notch app (`mac/`, sits on the real hardware notch) | built, runs. Visual check on the Mac still needed. |
+| Landing page at `/` (pixel-art sky style, live demo loop) | done |
+| Laptop bridge (`npm run bridge`) + cloud hub (token, `/mcp`) | done, tested with a fake board |
 | MCP server (`check_wiring`, `power_on`, `power_off`, `get_status`) | done, tested |
 | Text agent (Claude, tools, instant "cut power") | done, tested with sim |
 | Firmware | compiles for Uno. **Not tested on hardware.** |
