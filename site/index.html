@@ -466,7 +466,16 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 <script src="/assets/lenis.min.js"></script>
 <script>
 // smooth scroll, same as the earlier landing pages
-try { const lenis = new Lenis(); const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf); } catch (e) {}
+let lenis;
+try { lenis = new Lenis(); const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf); } catch (e) {}
+
+// in-page links (header nav, hero buttons) glide to their section. lenis's own anchors option skips
+// preventDefault, so the native jump flashes first and lenis animates back from it
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#"]'), target = a && a.hash && document.querySelector(a.hash);
+  if (!lenis || !target) return;
+  e.preventDefault(); lenis.scrollTo(target); history.pushState(null, '', a.hash);
+});
 
 // the demo runs at real macbook size and is scaled to fit, so the notch has true proportions
 const screenEl = document.querySelector('.screen'), frame = screenEl.querySelector('iframe');
