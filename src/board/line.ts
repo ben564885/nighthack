@@ -4,32 +4,41 @@ import type { Board, Link, Telemetry } from '../types.js';
 
 type Msg = { t: string; [k: string]: unknown };
 
-async function findPort(): Promise<string> {
+/** a line-based pipe to the firmware: usb serial locally, or a websocket from the bridge */
+export interface LineLink {
+  write(line: string): void;
+  onLine(cb: (line: string) => void): void;
+}
+
+export async function findPort(): Promise<string> {
   const ports = await SerialPort.list();
   const hit = ports.find((p) => /usbmodem|usbserial|ttyACM|ttyUSB|COM\d+/i.test(p.path));
   if (!hit) throw new Error('no arduino found. set SERIAL_PORT or plug in the board');
   return hit.path;
 }
 
-/** talks to firmware/smart_breadboard over usb serial, one json line per message */
-export class SerialBoard implements Board {
+export async function openSerialLink(path?: string): Promise<LineLink> {
+  const port = new SerialPort({ path: path ?? (await findPort()), baudRate: 115200 });
+  const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
+  await new Promise<void>((res, rej) => port.once('open', (e) => (e ? rej(e) : res())));
+  return {
+    write: (line) => port.write(line + '\n'),
+    onLine: (cb) => parser.on('data', (l: string) => cb(l.trim())),
+  };
+}
+
+/** speaks the firmware protocol (see firmware/smart_breadboard) over any LineLink */
+export class LineBoard implements Board {
   readonly mode = 'serial' as const;
-  private port!: SerialPort;
   private waiters: Array<{ types: string[]; resolve: (m: Msg) => void; reject: (e: Error) => void }> = [];
   private cutCb: (reason: string) => void = () => {};
 
-  static async open(path?: string) {
-    const board = new SerialBoard();
-    await board.connect(path ?? (await findPort()));
-    return board;
+  constructor(private link: LineLink) {
+    link.onLine((line) => this.onLine(line));
   }
 
-  private async connect(path: string) {
-    this.port = new SerialPort({ path, baudRate: 115200 });
-    const parser = this.port.pipe(new ReadlineParser({ delimiter: '\n' }));
-    parser.on('data', (line: string) => this.onLine(line.trim()));
-    await new Promise<void>((res, rej) => this.port.once('open', (e) => (e ? rej(e) : res())));
-    // opening the port resets most arduinos. wait for the boot message.
+  /** opening a usb port resets most arduinos, so wait for the boot message */
+  async handshake() {
     await this.request('PING', ['pong', 'ready'], 6000).catch(() => this.request('PING', ['pong'], 3000));
   }
 
@@ -61,20 +70,18 @@ export class SerialBoard implements Board {
         resolve: (m) => (clearTimeout(timer), resolve(m)),
         reject: (e) => (clearTimeout(timer), reject(e)),
       });
-      this.port.write(cmd + '\n');
+      this.link.write(cmd);
     });
   }
 
   async scan(): Promise<Link[]> {
-    const m = await this.request('SCAN', ['scan']);
-    return m.links as Link[];
+    return (await this.request('SCAN', ['scan'])).links as Link[];
   }
   async setPower(on: boolean) {
     await this.request(on ? 'ON' : 'OFF', ['ok']);
   }
   async status() {
-    const m = await this.request('STATUS', ['status']);
-    return m as unknown as Telemetry & { power: boolean };
+    return (await this.request('STATUS', ['status'])) as unknown as Telemetry & { power: boolean };
   }
   async setLimits(maxMa: number) {
     await this.request(`SET MAXMA ${Math.round(maxMa)}`, ['ok']);

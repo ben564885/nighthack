@@ -3,16 +3,30 @@ import { readFileSync } from 'node:fs';
 import { config, loadPlan } from './config.js';
 import { Hub } from './hub.js';
 import { SimBoard } from './board/sim.js';
-import { SerialBoard } from './board/serial.js';
+import { SwitchBoard } from './board/switch.js';
+import { openSerialLink, LineBoard } from './board/line.js';
+import { WebSocketServer, type WebSocket } from 'ws';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { registerTools } from './tools.js';
 import { PhotonChannel } from './photon.js';
 import { makeAgent } from './agent.js';
 import { placeCall } from './voice.js';
 import type { Finding } from './types.js';
 
 const plan = loadPlan();
-const board = config.boardMode === 'serial' ? await SerialBoard.open(config.serialPort) : new SimBoard(plan);
+// the board is the real one when the laptop bridge is connected, else the simulator.
+// BOARD=serial skips the bridge and opens a usb port on this machine (local use).
+const sim = new SimBoard(plan);
+let board: SwitchBoard | LineBoard;
+if (config.boardMode === 'serial') {
+  board = new LineBoard(await openSerialLink(config.serialPort));
+  await board.handshake();
+} else {
+  board = new SwitchBoard(sim);
+}
 const hub = new Hub(board, plan);
-const sim = board instanceof SimBoard ? board : null;
+const token = process.env.HUB_TOKEN ?? '';
 const photon = new PhotonChannel();
 
 // ---- alerts: notch is always on, text for every fault, call only when serious
@@ -58,9 +72,30 @@ const readBody = async (req: IncomingMessage) => {
   return raw ? JSON.parse(raw) : {};
 };
 
-createServer(async (req, res) => {
+const authed = (req: IncomingMessage, url: URL) =>
+  !token || req.headers['x-hub-token'] === token || url.searchParams.get('key') === token;
+
+const mcpApi = {
+  check: () => hub.checkWiring(),
+  powerOn: () => hub.powerOn(),
+  powerOff: () => hub.powerOff('mcp'),
+  state: async () => hub.state,
+};
+
+const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');
   try {
+    if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, board: hub.state.mode });
+    if (req.method !== 'GET' && !authed(req, url)) return json(res, 401, { error: 'missing or wrong key' });
+    if (url.pathname === '/mcp') {
+      // stateless streamable http: one server per request, safe behind any proxy
+      const mcp = new McpServer({ name: 'smart-breadboard', version: '0.1.0' });
+      registerTools(mcp, mcpApi);
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      res.on('close', () => void mcp.close());
+      await mcp.connect(transport);
+      return void (await transport.handleRequest(req, res, req.method === 'POST' ? await readBody(req) : undefined));
+    }
     if (req.method === 'GET' && url.pathname === '/') {
       res.writeHead(200, { 'content-type': 'text/html' });
       return res.end(notchHtml());
@@ -79,6 +114,7 @@ createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && url.pathname.startsWith('/api/sim/') && sim) {
+      if (board instanceof SwitchBoard && board.mode !== 'sim') return json(res, 409, { error: 'real board connected, sim controls are off' });
       const action = url.pathname.split('/').pop();
       const body = await readBody(req);
       if (action === 'fix') sim.fix();
@@ -94,4 +130,28 @@ createServer(async (req, res) => {
   } catch (e) {
     json(res, 500, { error: (e as Error).message });
   }
-}).listen(config.port, () => console.log(`[hub] ${board.mode} board. notch at http://localhost:${config.port}`));
+});
+
+// the laptop bridge connects here and becomes the board
+if (board instanceof SwitchBoard) {
+  const switchBoard = board;
+  const wss = new WebSocketServer({ noServer: true });
+  server.on('upgrade', (req, socket, head) => {
+    const url = new URL(req.url ?? '/', 'http://x');
+    if (url.pathname !== '/bridge' || (token && url.searchParams.get('token') !== token)) return socket.destroy();
+    wss.handleUpgrade(req, socket, head, async (ws: WebSocket) => {
+      const handlers: Array<(l: string) => void> = [];
+      ws.on('message', (d) => String(d).split('\n').forEach((l) => l.trim() && handlers.forEach((h) => h(l.trim()))));
+      ws.on('close', () => switchBoard.detach());
+      try {
+        await switchBoard.attach({ write: (l) => ws.send(l), onLine: (cb) => handlers.push(cb) });
+        console.log('[bridge] real board connected');
+      } catch (e) {
+        console.log('[bridge] handshake failed:', (e as Error).message);
+        ws.close();
+      }
+    });
+  });
+}
+
+server.listen(config.port, () => console.log(`[hub] up on :${config.port}, board: ${hub.state.mode}`));

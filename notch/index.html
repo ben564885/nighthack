@@ -141,8 +141,9 @@ const params = new URLSearchParams(location.search);
 if (params.has('overlay')) document.body.classList.add('overlay');
 if (params.has('dev')) document.body.classList.add('dev');
 addEventListener('keydown', (e) => { if (e.key === 'd') document.body.classList.toggle('dev'); });
+const KEY = params.get('key') || '';
 document.querySelectorAll('[data-go]').forEach((b) =>
-  b.addEventListener('click', () => fetch(b.dataset.go, { method: 'POST' }).catch(() => {})));
+  b.addEventListener('click', () => fetch(b.dataset.go, { method: 'POST', headers: KEY ? { 'x-hub-token': KEY } : {} }).catch(() => {})));
 
 const X0 = 14, STEP = (440 - 32 - 28) / 15;       // row x positions inside the strip
 const rowX = (n) => X0 + (n - 1) * STEP;

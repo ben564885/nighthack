@@ -47,4 +47,6 @@ export interface Board {
   setLimits(maxMa: number): Promise<void>;
   /** called when the board cuts power by itself */
   onCut(cb: (reason: string) => void): void;
+  /** optional: fires when the board behind this one changes */
+  onChange?(cb: () => void): void;
 }

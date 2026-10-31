@@ -32,11 +32,22 @@ export class Hub extends EventEmitter {
       mode: board.mode,
     };
     board.onCut((reason) => this.handleCut(reason));
+    board.onChange?.(() => {
+      if (!this.state.power) return this.set({});
+      // the link dropped while powered. the firmware keeps guarding on its own, but we cannot see it.
+      clearInterval(this.poll);
+      this.set({
+        phase: 'fault',
+        headline: 'board disconnected',
+        power: false,
+        findings: [{ kind: 'stray', rows: [], severity: 'warn', message: 'lost the connection to the board', fix: 'check the usb cable and that the bridge is running' }],
+      });
+    });
     board.setLimits(plan.maxMa).catch(() => {});
   }
 
   private set(patch: Partial<HubState>) {
-    this.state = { ...this.state, ...patch, updatedAt: Date.now() };
+    this.state = { ...this.state, ...patch, mode: this.board.mode, updatedAt: Date.now() };
     this.emit('state', this.state);
   }
 
