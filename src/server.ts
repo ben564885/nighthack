@@ -136,8 +136,11 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, hub.state);
     if (req.method === 'POST' && url.pathname === '/api/check') return json(res, 200, await hub.checkWiring());
+<<<<<<< Updated upstream
     if (req.method === 'POST' && url.pathname === '/api/stage') return json(res, 200, hub.stage(Boolean((await readBody(req)).on)));
     if (req.method === 'POST' && url.pathname === '/api/project') return json(res, 200, await hub.setProject(Boolean((await readBody(req)).on)));
+=======
+>>>>>>> Stashed changes
     if (req.method === 'POST' && url.pathname === '/api/power-on') return json(res, 200, await hub.powerOn());
     if (req.method === 'POST' && url.pathname === '/api/power-off') {
       await hub.powerOff('api');

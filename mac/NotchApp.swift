@@ -4,11 +4,6 @@
 import Cocoa
 import WebKit
 
-/// a click on the open notch should press its button, not just wake the window
-final class ClickWeb: WKWebView {
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-}
-
 final class Overlay: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var window: NSPanel!
     var web: WKWebView!
@@ -27,12 +22,12 @@ final class Overlay: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.level = .screenSaver              // above the menu bar
-        window.ignoresMouseEvents = true         // click-through, except over the open notch
+        window.ignoresMouseEvents = true         // never steals a click
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "notch")
-        web = ClickWeb(frame: .zero, configuration: config)
+        web = WKWebView(frame: .zero, configuration: config)
         web.setValue(false, forKey: "drawsBackground")
         web.underPageBackgroundColor = .clear
         window.contentView = web
@@ -42,7 +37,7 @@ final class Overlay: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
         layout()
         window.orderFrontRegardless()
 
-        // the window is mostly click-through, so it gets no mouse events. poll the pointer
+        // the window is click-through, so it gets no mouse events. poll the pointer
         // (no permission needed) and tell the page when it enters or leaves the notch area.
         tracker = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in self?.trackMouse() }
     }
@@ -59,8 +54,6 @@ final class Overlay: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             ? NSRect(x: f.midX - 230, y: f.maxY - 330, width: 460, height: 330)
             : NSRect(x: f.midX - notch.width / 2 - 10, y: f.maxY - notch.height - 4, width: notch.width + 20, height: notch.height + 4)
         let now = area.contains(NSEvent.mouseLocation)
-        // take clicks only over the open notch, so the menu bar and apps below keep working
-        window.ignoresMouseEvents = !(pageOpen && now)
         if now != inside {
             inside = now
             web.evaluateJavaScript("window.notchHover && window.notchHover(\(now))", completionHandler: nil)

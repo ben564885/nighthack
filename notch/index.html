@@ -119,19 +119,11 @@
   .live span { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .live span i { font-style: normal; font-size: 11px; color: var(--dim); margin-left: 2px; }
 
-  /* watch mode: live links, and the project checklist */
+  /* live wiring map */
   body[data-phase="idle"][data-links="true"] { --accent: var(--scan); }
   .strip .arc.link { stroke: var(--scan); }
   .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 4px; }
   .chips span { font-size: 11.5px; font-variant-numeric: tabular-nums; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--dim); }
-  .chips .lbl { background: none; padding-left: 0; }
-  .chips .ok { color: var(--ok); background: rgba(50,215,75,.13); }
-  .chips .miss { color: var(--warn); background: rgba(255,179,64,.13); }
-  .acts { display: flex; gap: 8px; margin-top: 10px; }
-  .acts button { font: inherit; font-size: 12px; color: var(--ink); background: rgba(255,255,255,.1); border: 0; padding: 6px 13px; border-radius: 999px; cursor: pointer; transition: background .2s; }
-  .acts button:hover { background: rgba(255,255,255,.18); }
-  .acts button.primary { background: var(--scan); color: #000; font-weight: 600; }
-  .acts button.primary:hover { background: #8fe0ff; }
 
   body[data-phase="cut"] .notch, body[data-critical="true"] .notch { animation: shake .45s; }
   @keyframes shake { 20% { transform: translateX(-50%) translateX(-5px); } 40% { transform: translateX(-50%) translateX(5px); } 60% { transform: translateX(-50%) translateX(-3px); } 80% { transform: translateX(-50%) translateX(2px); } }
@@ -217,8 +209,7 @@ function strip(state, hot, arcs, allOk = false) {
 
 // ---- auto-dismiss: closes after 15 s, or when the pointer goes onto the notch and then off.
 // a new event (phase or findings change) opens it again.
-// a new event (phase, findings, links or project change) opens it again. hovering the closed
-// notch peeks at the current board.
+// a new event opens it again. hovering the closed notch peeks at the current board.
 const DISMISS_MS = 15000;
 let lastState = null, stateSig = '', open = false, hovered = false, timer = null, first = true;
 const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.notch;
@@ -247,6 +238,7 @@ document.getElementById('notch').addEventListener('mouseenter', () => window.not
 document.getElementById('notch').addEventListener('mouseleave', () => window.notchHover(false));
 
 const DEMO = params.has('demo');
+<<<<<<< Updated upstream
 const post = (path, body) => fetch(path, {
   method: 'POST',
   headers: { 'content-type': 'application/json', ...(KEY ? { 'x-hub-token': KEY } : {}) },
@@ -277,41 +269,69 @@ function acts(st) {
   return `<div class="acts"><button class="primary" data-act="demo">demo project</button></div>`;
 }
 const EXTRA = 66;   // height of the checklist + buttons rows
+=======
+>>>>>>> Stashed changes
 
 let last = '';
-function render(st) {
+// the notch on a real hub shows one thing: the live wiring, rescanned every half second
+function renderLive(st) {
   lastState = st;
   const links = st.links || [];
-  const sigNow = JSON.stringify([st.phase, st.findings, links, st.project]);
+  const cut = st.phase === 'cut';
+  const sigNow = JSON.stringify([links, st.power, cut]);
   if (sigNow !== stateSig) {
     stateSig = sigNow;
-    // stay closed on a quiet start: nothing wired, no project, nothing happened
-    const quiet = first && st.phase === 'idle' && !links.length && !st.project;
+    const quiet = first && !links.length && !st.power && !cut;   // stay closed on a quiet start
     first = false;
-    if (DEMO) setOpen(st.phase !== 'idle');   // landing page loop: idle means closed
-    else if (!quiet) {
+    if (!quiet) {
       setOpen(true);
-      if (st.phase !== 'scanning') closeLater();
+      closeLater();
     }
   }
+<<<<<<< Updated upstream
   // a held notch (demo) stays open, whatever else happens, until the hold is released
   if (st.hold) { setOpen(true); clearTimeout(timer); }
+=======
+  const n = links.length;
+  document.body.dataset.phase = cut ? 'cut' : st.power ? 'powered' : 'idle';
+  document.body.dataset.critical = String(cut);
+  document.body.dataset.links = String(n > 0);
+  $('title').textContent = n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections';
+  $('meta').textContent = cut ? 'power cut' : st.power ? 'power on' : st.mode === 'sim' ? 'live · sim' : 'live';
+
+  const sig = JSON.stringify(['live', links]);
+  if (sig === last) return;
+  last = sig;
+  $('bodyEl').innerHTML = strip(st, new Set(links.flat()), links.map(([a, b]) => ({ kind: 'link', rows: [a, b] }))) +
+    (n ? `<div class="chips">${links.map(([a, b]) => `<span>${a}–${b}</span>`).join('')}</div>`
+       : `<div class="fix">wire a jumper between two rows and it shows up here</div>`);
+  $('notch').style.setProperty('--h', 34 + 76 + 28 + 12 + NH + 'px');
+}
+
+// the landing page plays a scripted loop of checks and faults through this one
+function render(st) {
+  if (!DEMO) return renderLive(st);
+  lastState = st;
+  const sigNow = JSON.stringify([st.phase, st.findings]);
+  if (sigNow !== stateSig) {
+    stateSig = sigNow;
+    setOpen(st.phase !== 'idle');   // idle means closed
+  }
+>>>>>>> Stashed changes
   const faulty = st.phase === 'fault' || st.phase === 'cut';
   const critical = st.findings.some((f) => f.severity === 'critical') || st.phase === 'cut';
   document.body.dataset.phase = st.phase;
   document.body.dataset.critical = String(critical && faulty);
-  document.body.dataset.links = String(links.length > 0);
 
   $('title').textContent = st.phase === 'fault' ? (critical ? 'danger: do not power on' : 'wiring issue') : st.headline;
   $('meta').textContent =
     st.staged ? 'demo' :
     st.phase === 'powered' ? (st.telemetry.sensed === false ? 'on' : `${(st.telemetry.mv / 1000).toFixed(2)} v`) :
     st.phase === 'fault' ? `${st.findings.length} issue${st.findings.length === 1 ? '' : 's'}` :
-    st.phase === 'idle' && !st.project ? (st.mode === 'sim' ? 'live · sim' : 'live') :
     st.mode === 'sim' ? 'sim' : '';
 
   // rebuild the body only when the content changes, so animations are not restarted
-  const sig = JSON.stringify([st.phase, st.findings, links, st.project, st.power, st.phase === 'powered' ? Math.round(st.telemetry.ma / 5) : 0]);
+  const sig = JSON.stringify([st.phase, st.findings, st.phase === 'powered' ? Math.round(st.telemetry.ma / 5) : 0]);
   if (sig === last) return;
   last = sig;
 
@@ -331,17 +351,19 @@ function render(st) {
           <path class="tick" d="M13 23 l7 7 l12 -14"/>
         </svg>
         <div class="txt"><div class="msg">no faults found</div><div class="fix">wiring matches the plan. safe to power on.</div></div>
-      </div>` + planChips(st) + acts(st);
-    h = 168 + (DEMO ? 0 : EXTRA);
+      </div>`;
+    h = 168;
   } else if (faulty) {
     const f = st.findings[0];
     html = strip(st, hot, arcs) +
       `<div class="msg">${esc(f.message)}</div><div class="fix"><b>fix</b> ${esc(f.fix)}</div>` +
-      (st.findings.length > 1 ? `<div class="fix" style="margin-top:6px">and ${st.findings.length - 1} more</div>` : '') +
-      planChips(st) + acts(st);
+      (st.findings.length > 1 ? `<div class="fix" style="margin-top:6px">and ${st.findings.length - 1} more</div>` : '');
     h = st.findings.length > 1 ? 200 : 180;
     if (st.phase === 'cut') h = 172;
+<<<<<<< Updated upstream
     if (!DEMO && !st.hold) h += st.project && st.phase !== 'cut' ? EXTRA : 38;
+=======
+>>>>>>> Stashed changes
   } else if (st.phase === 'powered') {
     const t = st.telemetry;
     if (t.sensed === false) {
@@ -360,17 +382,6 @@ function render(st) {
         <div class="fix" style="margin-top:10px">watching voltage, current and temperature.</div>`;
       h = 150;
     }
-    html += acts(st);
-    if (!DEMO) h += 38;
-  } else if (st.phase === 'idle') {
-    // watch mode: every connection the board sees right now, rescanned every couple of seconds
-    const arcs = links.map(([a, b]) => ({ kind: 'link', rows: [a, b] }));
-    html = strip(st, new Set(links.flat()), arcs);
-    if (st.project) html += planChips(st);
-    else if (links.length) html += `<div class="chips">${links.map(([a, b]) => `<span>${a}–${b}</span>`).join('')}</div>`;
-    else html += `<div class="fix">wire a jumper between two rows and it shows up here</div>`;
-    html += acts(st);
-    h = 34 + 76 + 28 + (DEMO ? 0 : 38) + 12;
   }
   $('bodyEl').innerHTML = html;
   $('notch').style.setProperty('--h', h + NH + 'px');

@@ -42,6 +42,10 @@ export async function openSerialLink(path?: string): Promise<SerialLink> {
   const port = new SerialPort({ path: resolved, baudRate: 115200, hupcl: false, autoOpen: false });
   await new Promise<void>((res, rej) => port.open((e) => (e ? rej(e) : res())));
   await new Promise<void>((res) => port.set({ dtr: false, rts: false }, () => res()));
+  // on macos the serial read only fires when something else wakes the event loop. with no
+  // timer running (the bridge), each reply waited for the next command. keep the loop awake.
+  const wake = setInterval(() => {}, 10);
+  port.once('close', () => clearInterval(wake));
   const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
   return {
     path: resolved,
@@ -97,12 +101,17 @@ export class LineBoard implements Board {
 
   private request(cmd: string, types: string[], timeoutMs = 3000): Promise<Msg> {
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`board timeout on ${cmd}`)), timeoutMs);
-      this.waiters.push({
+      const waiter = {
         types,
-        resolve: (m) => (clearTimeout(timer), resolve(m)),
-        reject: (e) => (clearTimeout(timer), reject(e)),
-      });
+        resolve: (m: Msg) => (clearTimeout(timer), resolve(m)),
+        reject: (e: Error) => (clearTimeout(timer), reject(e)),
+      };
+      // a request that timed out must leave the queue, or the next reply goes to it
+      const timer = setTimeout(() => {
+        this.waiters = this.waiters.filter((w) => w !== waiter);
+        reject(new Error(`board timeout on ${cmd}`));
+      }, timeoutMs);
+      this.waiters.push(waiter);
       this.link.write(cmd);
     });
   }

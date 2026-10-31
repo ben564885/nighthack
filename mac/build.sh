@@ -1,7 +1,7 @@
 #!/bin/sh
 # usage: mac/build.sh [hub-url]   ->  mac/SmartNotch.app
 # the url is baked in, so double-clicking the app works with no arguments.
-# HUB_TOKEN=... mac/build.sh <url> also bakes the token in, so the notch buttons work.
+# HUB_TOKEN=... mac/build.sh <url> also bakes the token in (passed to the page as ?key=).
 # the .app is git-ignored, so the token stays on this machine.
 set -e
 cd "$(dirname "$0")"

@@ -33,9 +33,12 @@ export class Hub extends EventEmitter {
       telemetry: { mv: 0, ma: 0, tc: 0 },
       cutReason: null,
       plan,
+<<<<<<< Updated upstream
       project: null,
       hold: false,
       staged: false,
+=======
+>>>>>>> Stashed changes
       updatedAt: Date.now(),
       mode: board.mode,
     };
@@ -98,8 +101,9 @@ export class Hub extends EventEmitter {
       });
   }
 
-  /** watch mode lists the links. project mode compares them to the plan. */
+  /** a background scan only records the live links. a changed board makes the last check stale. */
   private applyScan(links: HubState['links']) {
+<<<<<<< Updated upstream
     if (!this.state.project) {
       const n = links.length;
       this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links });
@@ -138,6 +142,10 @@ export class Hub extends EventEmitter {
       if (!this.state.power) this.applyScan(this.state.links);
       return { ok: true, findings: [] };
     });
+=======
+    const n = links.length;
+    this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links });
+>>>>>>> Stashed changes
   }
 
   checkWiring(): Promise<CheckResult> {
@@ -145,8 +153,7 @@ export class Hub extends EventEmitter {
       if (this.state.power) {
         return { ok: false, findings: [{ kind: 'stray', rows: [], severity: 'warn', message: 'power is on, so the board cannot scan', fix: 'cut the power first' }] };
       }
-      // a check always compares against the plan, so it starts the project
-      this.set({ phase: 'scanning', headline: 'scanning', cutReason: null, project: this.state.plan.name });
+      this.set({ phase: 'scanning', headline: 'scanning', cutReason: null });
       await sleep(900); // long enough for the notch to play the scan animation
       let links: HubState['links'];
       try {
@@ -157,8 +164,10 @@ export class Hub extends EventEmitter {
         this.set({ phase: 'fault', headline: SCAN_FAILED, findings });
         return { ok: false, findings };
       }
-      const findings = this.applyScan(links);
+      // claude's check compares the board to the circuit plan
+      const findings = analyze(this.state.plan, links);
       const ok = findings.length === 0;
+      this.set({ phase: ok ? 'pass' : 'fault', headline: ok ? 'all clear' : findings[0].message, findings, links });
       if (!ok) this.emit('alert', { kind: 'fault', findings });
       return { ok, findings };
     });
