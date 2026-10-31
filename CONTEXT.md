@@ -238,6 +238,5 @@ Built and tested in simulation. See `README.md` for how to run.
 
 ## 8. Links
 
-- Meeting transcript: https://notes.granola.ai/t/b3042558-5c15-425e-ac05-c656a7fd7a67
 - Directions: https://f.inc/3c
 - Repo: https://github.com/ben564885/nighthack

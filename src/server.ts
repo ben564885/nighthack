@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { extname, normalize, join } from 'node:path';
+import { timingSafeEqual } from 'node:crypto';
 import { config, loadPlan } from './config.js';
 import { Hub } from './hub.js';
 import { SimBoard } from './board/sim.js';
@@ -28,6 +29,12 @@ if (config.boardMode === 'serial') {
 }
 const hub = new Hub(board, plan);
 const token = process.env.HUB_TOKEN ?? '';
+// never run in production with the control routes open
+if (process.env.NODE_ENV === 'production' && !token) throw new Error('HUB_TOKEN is required in production');
+const same = (a: string, b: string) => {
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
 const photon = new PhotonChannel();
 
 // ---- alerts: notch is always on, text for every fault, call only when serious
@@ -69,12 +76,15 @@ const json = (res: ServerResponse, code: number, body: unknown) => {
 };
 const readBody = async (req: IncomingMessage) => {
   let raw = '';
-  for await (const c of req) raw += c;
+  for await (const c of req) {
+    raw += c;
+    if (raw.length > 1_000_000) throw new Error('body too large');
+  }
   return raw ? JSON.parse(raw) : {};
 };
 
 const authed = (req: IncomingMessage, url: URL) =>
-  !token || req.headers['x-hub-token'] === token || url.searchParams.get('key') === token;
+  !token || same(String(req.headers['x-hub-token'] ?? ''), token) || same(url.searchParams.get('key') ?? '', token);
 
 const mcpApi = {
   check: () => hub.checkWiring(),
@@ -87,7 +97,7 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');
   try {
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, board: hub.state.mode });
-    if (req.method !== 'GET' && !authed(req, url)) return json(res, 401, { error: 'missing or wrong key' });
+    if ((req.method !== 'GET' || url.pathname === '/mcp') && !authed(req, url)) return json(res, 401, { error: 'missing or wrong key' });
     if (url.pathname === '/mcp') {
       // stateless streamable http: one server per request, safe behind any proxy
       const mcp = new McpServer({ name: 'smart-breadboard', version: '0.1.0' });
@@ -150,7 +160,7 @@ if (board instanceof SwitchBoard) {
   const wss = new WebSocketServer({ noServer: true });
   server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url ?? '/', 'http://x');
-    if (url.pathname !== '/bridge' || (token && url.searchParams.get('token') !== token)) return socket.destroy();
+    if (url.pathname !== '/bridge' || (token && !same(url.searchParams.get('token') ?? '', token))) return socket.destroy();
     wss.handleUpgrade(req, socket, head, async (ws: WebSocket) => {
       const handlers: Array<(l: string) => void> = [];
       ws.on('message', (d) => String(d).split('\n').forEach((l) => l.trim() && handlers.forEach((h) => h(l.trim()))));
@@ -166,4 +176,5 @@ if (board instanceof SwitchBoard) {
   });
 }
 
-server.listen(config.port, () => console.log(`[hub] up on :${config.port}, board: ${hub.state.mode}`));
+// behind caddy in production: only the local proxy may reach the hub
+server.listen(config.port, process.env.HOST ?? '127.0.0.1', () => console.log(`[hub] up on :${config.port}, board: ${hub.state.mode}`));
