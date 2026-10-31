@@ -42,13 +42,22 @@ a transparent, click-through window pinned to the real hardware notch (size read
 it is invisible until something needs you, then grows downward. it closes after 15 seconds,
 or when the pointer goes onto it and then off. a new event opens it again.
 
+## serial (esp32)
+
+the board speaks plain text over usb serial: see `docs/serial-protocol.md`.
+
+```sh
+npm run serial     # type PING / SCAN / ON / OFF / STATUS straight to the board, no cloud
+npm run bridge     # laptop <-> cloud hub (set CLOUD_URL and HUB_TOKEN)
+```
+
 ## real board
 
 ```sh
 BOARD=serial npm run hub          # auto-detects the arduino, or set SERIAL_PORT=/dev/cu.usbmodem...
 ```
 
-flash `firmware/smart_breadboard` first (`arduino-cli compile --fqbn arduino:avr:uno firmware/smart_breadboard`).
+flash `firmware/smart_breadboard` first: `arduino-cli compile --fqbn esp32:esp32:esp32 firmware/smart_breadboard` (or `arduino:avr:uno`). pin maps are at the top of the sketch.
 relay instead of mosfet: edit `POWER_ACTIVE_LEVEL` and `POWER_SETTLE_MS` at the top of the sketch. nothing else changes.
 
 ## layout

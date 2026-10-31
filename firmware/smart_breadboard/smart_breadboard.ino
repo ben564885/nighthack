@@ -1,4 +1,4 @@
-// smart breadboard firmware (arduino uno / nano, 5v)
+// smart breadboard firmware: esp32 (3.3v, main target) or arduino uno/nano (5v)
 //
 // what it does
 //   1. SCAN : with power off, finds which of the 16 watched rows are connected.
@@ -15,14 +15,21 @@
 //   SET MAXMA 400   -> {"t":"ok"}
 //   (unsolicited)   -> {"t":"cut","reason":"overcurrent"|"overtemperature"}
 //
-// wiring
-//   drive mux  CD74HC4067 : S0-S3 = D2 D3 D4 D5, SIG = D6 (through 1k), EN = D7 (active low)
-//   sense mux  CD74HC4067 : S0-S3 = D8 D9 D10 D11, SIG = A0, EN = D12 (active low)
+// wiring (pins are in the board block below)
+//   drive mux  CD74HC4067 : S0-S3, SIG (through 1k), EN (active low)
+//   sense mux  CD74HC4067 : S0-S3, SIG to an adc pin, EN (active low)
 //   both mux channel 0..15 -> the same 16 breadboard rows (row 1 = channel 0)
-//   A0 also needs a 100k resistor to gnd, so an unconnected row reads low.
-//   power switch control  : A3
-//   thermistor (10k ntc + 10k divider) : A1
-//   ina219 and ssd1306 oled : i2c (A4 sda, A5 scl), addresses 0x40 and 0x3C
+//   the sense adc pin also needs a 100k resistor to gnd, so an unconnected row reads low.
+//   power switch control pin (add a 10k pulldown so power is off while the chip boots)
+//   thermistor (10k ntc + 10k divider) on an adc1 pin
+//   ina219 (0x40) and ssd1306 oled (0x3C) on i2c
+//
+// esp32 notes
+//   - the muxes, ina219 and oled run from 3.3v. the test voltage is 3.3v.
+//   - the power switch input is 3.3v logic. a mosfet must be logic-level (vgs threshold well
+//     under 3v). many relay modules need 5v to trigger: use one rated for 3.3v, or a transistor driver.
+//   - upload: arduino-cli compile --fqbn esp32:esp32:esp32 firmware/smart_breadboard
+//     (esp32-s3: esp32:esp32:esp32s3. pins below are for the classic esp32 devkit.)
 //
 // libraries: Adafruit INA219, Adafruit SSD1306, Adafruit GFX
 
@@ -37,6 +44,20 @@
 #define POWER_SETTLE_MS 2
 // -----------------------------------------------------------------------------
 
+#if defined(ARDUINO_ARCH_ESP32)
+// classic esp32 devkit. avoids strapping pins (0 2 5 12 15) and flash pins (6-11).
+// gpio 34-39 are input only, which is fine for the adc pins.
+const uint8_t DRIVE_S[4] = {16, 17, 18, 19};
+const uint8_t DRIVE_SIG = 23;
+const uint8_t DRIVE_EN = 25;
+const uint8_t SENSE_S[4] = {26, 27, 14, 13};
+const uint8_t SENSE_EN = 33;
+const uint8_t SENSE_SIG = 34;  // adc1
+const uint8_t THERM_PIN = 35;  // adc1
+const uint8_t POWER_PIN = 4;
+const int ADC_MAX = 4095;      // 12 bit
+#else
+// arduino uno / nano
 const uint8_t DRIVE_S[4] = {2, 3, 4, 5};
 const uint8_t DRIVE_SIG = 6;
 const uint8_t DRIVE_EN = 7;
@@ -45,9 +66,11 @@ const uint8_t SENSE_EN = 12;
 const uint8_t SENSE_SIG = A0;
 const uint8_t THERM_PIN = A1;
 const uint8_t POWER_PIN = A3;
+const int ADC_MAX = 1023;      // 10 bit
+#endif
 
 const uint8_t ROWS = 16;
-const int LINK_THRESHOLD = 512;  // adc counts. connected rows read near 1023.
+const int LINK_THRESHOLD = ADC_MAX / 2;  // connected rows read near full scale
 const float MAX_TEMP_C = 80.0;
 
 float maxMa = 400.0;
@@ -74,8 +97,8 @@ void muxesOff() {
 float readTempC() {
   // 10k ntc, beta 3950, 10k fixed resistor to gnd
   int raw = analogRead(THERM_PIN);
-  if (raw <= 0 || raw >= 1023) return 25.0;
-  float r = 10000.0 * (1023.0 / raw - 1.0);
+  if (raw <= 0 || raw >= ADC_MAX) return 25.0;
+  float r = 10000.0 * ((float)ADC_MAX / raw - 1.0);
   float k = 1.0 / (log(r / 10000.0) / 3950.0 + 1.0 / 298.15);
   return k - 273.15;
 }
@@ -231,6 +254,11 @@ void setup() {
   muxesOff();
 
   Serial.begin(115200);
+#if defined(ARDUINO_ARCH_ESP32)
+  analogReadResolution(12);
+  analogSetPinAttenuation(SENSE_SIG, ADC_11db);  // full 0-3.3v range
+  analogSetPinAttenuation(THERM_PIN, ADC_11db);
+#endif
   haveIna = ina.begin();
   if (haveIna) ina.setCalibration_32V_2A();
   haveOled = oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);

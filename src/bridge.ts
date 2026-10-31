@@ -1,26 +1,63 @@
-// runs on the laptop next to the arduino. connects OUT to the cloud hub and
-// passes serial lines both ways, so nothing needs a public address at home.
+// runs on the laptop next to the esp32. plain serial in, websocket out:
+// every json line from the board goes up to the cloud hub, every command line from the
+// hub goes down to the board. nothing is interpreted here, so the protocol lives in one
+// place (firmware + src/board/line.ts). see docs/serial-protocol.md.
+//
+//   CLOUD_URL=https://138-68-238-172.sslip.io HUB_TOKEN=... npm run bridge
+//   SERIAL_PORT=/dev/cu.usbserial-0001   to pick a port by hand
+//   VERBOSE=1                            to log every line
 import WebSocket from 'ws';
-import { openSerialLink } from './board/line.js';
+import { openSerialLink, type SerialLink } from './board/line.js';
 import { config } from './config.js';
 
 const cloud = (process.env.CLOUD_URL ?? config.hubUrl).replace(/^http/, 'ws').replace(/\/$/, '');
 const token = process.env.HUB_TOKEN ?? '';
+const verbose = Boolean(process.env.VERBOSE);
 
-const link = await openSerialLink(config.serialPort);
-console.log('[bridge] arduino open');
+const log = (m: string) => console.log(`[bridge ${new Date().toTimeString().slice(0, 8)}] ${m}`);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-let ws: WebSocket | null = null;
-link.onLine((line) => ws?.readyState === WebSocket.OPEN && ws.send(line));
+/** one session = one open serial port + one open websocket. when either drops, both close and we retry. */
+async function session() {
+  const link: SerialLink = await openSerialLink(config.serialPort);
+  log(`serial open on ${link.path}`);
 
-function connect() {
-  ws = new WebSocket(`${cloud}/bridge?token=${encodeURIComponent(token)}`);
-  ws.on('open', () => console.log('[bridge] connected to', cloud));
-  ws.on('message', (data) => link.write(String(data).trim()));
-  ws.on('close', () => {
-    console.log('[bridge] disconnected, retrying in 2s');
-    setTimeout(connect, 2000);
+  const ws = new WebSocket(`${cloud}/bridge?token=${encodeURIComponent(token)}`);
+  await new Promise<void>((res, rej) => {
+    ws.once('open', () => res());
+    ws.once('error', rej);
+  }).catch((e) => {
+    link.close();
+    throw e;
   });
-  ws.on('error', (e) => console.log('[bridge] error:', e.message));
+  log(`connected to ${cloud}`);
+
+  link.onLine((line) => {
+    // esp32 boot logs are not json. keep them out of the cloud.
+    if (verbose) log(`< ${line}`);
+    if (line.startsWith('{') && ws.readyState === WebSocket.OPEN) ws.send(line);
+  });
+  ws.on('message', (data) => {
+    const cmd = String(data).trim();
+    if (verbose) log(`> ${cmd}`);
+    link.write(cmd);
+  });
+
+  await new Promise<void>((res) => {
+    link.onClose(res);
+    ws.once('close', res);
+  });
+  link.close();
+  ws.close();
 }
-connect();
+
+for (;;) {
+  try {
+    await session();
+    log('link dropped');
+  } catch (e) {
+    log(`${(e as Error).message}`);
+  }
+  log('retrying in 2s');
+  await sleep(2000);
+}

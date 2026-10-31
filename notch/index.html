@@ -95,6 +95,20 @@
   body[data-phase="scanning"] .sweep { animation: sweep 0.9s linear infinite; }
   @keyframes sweep { 0% { opacity: 0; transform: translateX(0); } 15% { opacity: .35; } 85% { opacity: .35; } 100% { opacity: 0; transform: translateX(380px); } }
 
+
+  /* all clear: ring burst, circle draws, check draws, rows light up in a wave */
+  .okrow { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+  .okrow .txt .msg { margin-top: 0; }
+  .ok-badge { width: 44px; height: 44px; flex: none; overflow: visible; animation: okpop .5s .85s var(--ease); }
+  .ok-badge .disc { fill: rgba(50, 215, 75, .14); stroke: var(--ok); stroke-width: 2.5; stroke-dasharray: 126; stroke-dashoffset: 126; transform: rotate(-90deg); transform-origin: 22px 22px; animation: okdraw .55s var(--ease) forwards; }
+  .ok-badge .tick { fill: none; stroke: var(--ok); stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 32; stroke-dashoffset: 32; animation: okdraw .4s .45s var(--ease) forwards; }
+  .ok-badge .ring { fill: none; stroke: var(--ok); stroke-width: 2; opacity: 0; transform-origin: 22px 22px; animation: okring .9s .45s ease-out; }
+  @keyframes okdraw { to { stroke-dashoffset: 0; } }
+  @keyframes okpop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+  @keyframes okring { 0% { opacity: .8; transform: scale(.9); } 100% { opacity: 0; transform: scale(2.1); } }
+  .strip .row.ok { fill: var(--ok); filter: drop-shadow(0 0 4px var(--ok)); transform-box: fill-box; transform-origin: center; animation: rowok .5s both; }
+  @keyframes rowok { from { fill: var(--faint); filter: none; transform: scaleY(.55); } 60% { transform: scaleY(1.15); } to { transform: scaleY(1); } }
+
   .msg { margin-top: 6px; font-size: 14px; font-weight: 600; }
   .fix { margin-top: 2px; color: var(--dim); font-size: 13px; }
   .fix b { color: var(--accent); font-weight: 600; }
@@ -167,12 +181,12 @@ document.querySelectorAll('[data-go]').forEach((b) =>
 const X0 = 14, STEP = (440 - 32 - 28) / 15;       // row x positions inside the strip
 const rowX = (n) => X0 + (n - 1) * STEP;
 
-function strip(state, hot, arcs) {
+function strip(state, hot, arcs, allOk = false) {
   let s = `<svg class="strip" viewBox="0 0 408 76" aria-hidden="true">`;
   s += `<rect class="sweep" x="0" y="26" width="22" height="26" rx="11"/>`;
   for (let n = 1; n <= 16; n++) {
     const isHot = hot.has(n);
-    s += `<rect class="row ${isHot ? 'hot' : ''}" x="${rowX(n) - 4}" y="${isHot ? 28 : 32}" width="8" height="${isHot ? 28 : 20}" rx="4"/>`;
+    s += `<rect class="row ${isHot ? 'hot' : ''} ${allOk ? 'ok' : ''}" ${allOk ? `style="animation-delay:${0.9 + n * 0.045}s"` : ''} x="${rowX(n) - 4}" y="${isHot ? 28 : 32}" width="8" height="${isHot ? 28 : 20}" rx="4"/>`;
     s += `<text class="num ${isHot ? 'hot' : ''}" x="${rowX(n)}" y="70">${n}</text>`;
   }
   // one arch per hop, so a path like 1 > 5 > 6 > 2 reads as a chain
@@ -241,8 +255,16 @@ function render(st) {
     html = strip(st, hot, arcs) + `<div class="msg">scanning 16 rows</div><div class="fix">checking every connection with power off</div>`;
     h = 162;
   } else if (st.phase === 'pass') {
-    html = strip(st, hot, arcs) + `<div class="msg">all clear</div><div class="fix">wiring matches the plan. safe to power on.</div>`;
-    h = 162;
+    html = strip(st, hot, arcs, true) +
+      `<div class="okrow">
+        <svg class="ok-badge" viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="ring" cx="22" cy="22" r="20"/>
+          <circle class="disc" cx="22" cy="22" r="20"/>
+          <path class="tick" d="M13 23 l7 7 l12 -14"/>
+        </svg>
+        <div class="txt"><div class="msg">no faults found</div><div class="fix">wiring matches the plan. safe to power on.</div></div>
+      </div>`;
+    h = 168;
   } else if (faulty) {
     const f = st.findings[0];
     html = strip(st, hot, arcs) +

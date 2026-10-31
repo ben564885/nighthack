@@ -75,7 +75,9 @@ Power supply -> INA219 (current/voltage sensor) -> logic-level MOSFET (on/off sw
 - **Open question:** a relay may replace the MOSFET. See section 6.
 
 ### Brain
-- **Arduino** runs the scan, the power switch and the safety cutoff.
+- **ESP32** (changed from Arduino) runs the scan, the power switch and the safety cutoff. The same sketch also builds for an Arduino Uno.
+- 3.3V logic. The muxes, INA219 and OLED run from 3.3V, so the test voltage is 3.3V. The power switch must work with a 3.3V signal: a logic-level MOSFET, or a relay module rated for 3.3V.
+- The host talks to the board by plain serial commands. See `docs/serial-protocol.md`. No MCP between the laptop and the board.
 - It kills the switch **on its own** if current or temperature exceeds limits. No laptop required.
 
 ### Display
@@ -160,8 +162,8 @@ Built and tested in simulation. See `README.md` for how to run.
 | Laptop bridge (`npm run bridge`) + cloud hub (token, `/mcp`) | done, tested with a fake board |
 | MCP server (`check_wiring`, `power_on`, `power_off`, `get_status`) | done, tested |
 | Text agent (Claude, tools, instant "cut power") | done, tested with sim |
-| Firmware | compiles for Uno. **Not tested on hardware.** |
-| Serial board driver | written, **not tested on hardware** |
+| Firmware | one sketch, ESP32 and Uno pin blocks. Uno build compiles; ESP32 build checked if noted below. **Not tested on hardware.** |
+| Serial layer + laptop bridge (`npm run bridge`) + serial test tool (`npm run serial`) | done. Tested against a fake ESP32 on a virtual port and the production hub: handshake, check, power on, unplug fallback. **Not tested on a real ESP32.** |
 | Photon iMessage | running in production, polling with the real key. Agent number **+16283167976**. **Owner must text it once** before alerts can send. Round trip not yet tested. |
 | Phone call | code written for ElevenLabs over Photon SIP. **Not tested.** Needs a dedicated Photon number and ElevenLabs keys. |
 

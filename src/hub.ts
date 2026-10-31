@@ -104,6 +104,7 @@ export class Hub extends EventEmitter {
     const names: Record<string, string> = {
       overcurrent: 'too much current',
       overtemperature: 'too hot',
+      'board restarted': 'the board restarted',
     };
     this.set({
       phase: 'cut',
