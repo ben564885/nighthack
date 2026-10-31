@@ -29,7 +29,7 @@ if (config.boardMode === 'serial') {
 }
 const hub = new Hub(board, plan);
 // keep the notch's wiring map live while power is off. AUTO_SCAN_MS=0 turns it off.
-hub.startWatch(Number(process.env.AUTO_SCAN_MS ?? 1500));
+hub.startWatch(Number(process.env.AUTO_SCAN_MS ?? 500));
 const token = process.env.HUB_TOKEN ?? '';
 // never run in production with the control routes open
 if (process.env.NODE_ENV === 'production' && !token) throw new Error('HUB_TOKEN is required in production');
