@@ -240,25 +240,109 @@ section .lead { margin-top: 1.25rem; max-width: 40rem; color: var(--muted); font
 .diagram .legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .5rem; background: var(--c); }
 @keyframes scanrow { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
-/* safety (dark) */
+/* safety (dark): heading left, lead right, then one card per rule showing the real output behind it */
 .dark { background: var(--ink); color: var(--ink-text); }
 .dark h2 { color: #fff; }
 .dark .lead, .dark .card p { color: #9a9ca3; }
 .dark .card { background: var(--ink-2); border-color: #23252b; }
 .dark .card h3 { color: #fff; }
-.rule { display: flex; gap: 1rem; align-items: baseline; padding: 1.1rem 0; border-top: 1px solid #23252b; }
-.rule:last-child { border-bottom: 1px solid #23252b; }
-.rule b { font-family: var(--font-mono); font-size: .75rem; color: var(--accent); min-width: 2.2rem; font-weight: 400; }
-.rule p { color: #c4c6cb; }
-.rule p strong { color: #fff; font-weight: 600; }
+.sec-head { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.25rem 4rem; align-items: end; }
+.sec-head .lead { margin-top: 0; }
+@media (max-width: 860px) { .sec-head { grid-template-columns: 1fr; } }
+.guards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 3.5rem; }
+@media (max-width: 760px) { .guards { grid-template-columns: 1fr; } }
+.guard { display: flex; flex-direction: column; background: #131419; border: 1px solid #23252b; border-radius: 24px; padding: .55rem; }
+.g-vis { position: relative; min-height: 13rem; overflow: hidden; border-radius: 18px; border: 1px solid #1f2127; background: #0a0b0e radial-gradient(#1c1e24 1px, transparent 1.5px) 0 0 / 14px 14px; font-family: var(--font-mono); font-size: .72rem; line-height: 1.65; color: #c4c6cb; }
+.g-vis b { font-weight: 500; }
+.g-bar { display: flex; align-items: center; gap: 6px; height: 2.2rem; padding: 0 .9rem; border-bottom: 1px solid #1f2127; background: #0d0e11; color: #6b6d73; }
+.g-bar i { width: 8px; height: 8px; border-radius: 50%; background: #2a2c33; }
+.g-bar > span:first-of-type { margin-left: .45rem; }
+.g-st { margin-left: auto; display: inline-flex; align-items: center; gap: .4rem; padding: 0 .55rem; border: 1px solid #2a2c33; border-radius: 999px; background: #0d0e11; color: #c4c6cb; }
+.g-st::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c, #ff453a); box-shadow: 0 0 8px var(--c, #ff453a); }
+.g-body { padding: .8rem 1rem; }
+.ln.f { display: grid; grid-template-columns: 4.6rem 1fr; }
+.dim, .cm { color: #5c5e65; } .fn { color: #64d2ff; } .kw { color: #ff9f6b; } .str { color: #ffd9a8; } .crit { color: #ff453a; } .warn { color: #ffd60a; }
+.scanbar { display: flex; gap: 3px; margin: .45rem 0 .6rem; }
+.scanbar b { flex: 1; height: 6px; border-radius: 2px; background: #1d1f25; }
+.src { list-style: none; margin: 0; padding: .7rem 0; counter-reset: ln 303; }
+.src li { counter-increment: ln; display: grid; grid-template-columns: 2.9rem 1fr; padding-right: .9rem; }
+.src li::before { content: counter(ln); padding-right: 1rem; text-align: right; color: #3f4148; }
+.src li > span { white-space: pre-wrap; }
+.src li.wrap5 > span { padding-left: 5ch; text-indent: -5ch; }
+.src li.hl { background: rgba(193,80,46,.14); box-shadow: inset 2px 0 0 #e2734f; }
+.src li.hl::before { color: #e2734f; }
+.g-vis.fade { height: 13rem; }
+.g-vis.fade::after { content: ""; position: absolute; inset: auto 0 0; height: 4rem; background: linear-gradient(transparent, #0a0b0e 85%); pointer-events: none; }
+.g-vis .corner { position: absolute; right: .9rem; bottom: .8rem; z-index: 1; }
+.mux-wrap { position: relative; padding: .9rem 1rem .1rem; }
+.mux { display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px; }
+.mux b { height: 2.7rem; border-radius: 4px; border: 1px solid #23252b; background: repeating-linear-gradient(135deg, #1b1d22 0 4px, #111216 4px 8px); }
+.mux-off { position: absolute; left: 50%; top: 50%; translate: -50% -50%; display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; padding: .25rem .7rem; border-radius: 999px; background: #0d0e11; border: 1px solid #2a2c33; color: #c4c6cb; }
+.mux-off svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+.g-msgs { display: flex; flex-direction: column; gap: .4rem; padding: .85rem 1rem; font-family: var(--font-sans); font-size: .8rem; line-height: 1.35; }
+.sb { max-width: 80%; padding: .42rem .75rem; border-radius: 16px; color: #fff; }
+.sb.out { align-self: flex-end; background: #0a84ff; border-bottom-right-radius: 5px; }
+.sb.in { align-self: flex-start; background: #26262a; border-bottom-left-radius: 5px; }
+.g-txt { padding: 1.25rem 1.05rem 1.05rem; }
+.g-n { font-family: var(--font-mono); font-size: .72rem; color: #e2734f; }
+.g-txt h3 { margin: .3rem 0 .45rem; font-size: 1.5rem; letter-spacing: -.015em; color: #fff; }
+.g-txt p { color: #9a9ca3; }
+.g-txt code { font-family: var(--font-mono); font-size: .86em; color: #e8e9eb; background: #1d1f25; padding: .1em .4em; border-radius: 6px; }
+.guards .a { opacity: 0; }
+.guards.in .a { animation: g-in .45s cubic-bezier(.2,.7,.2,1) forwards; animation-delay: calc(var(--d, 0) * 1s); }
+.guards.in .scanbar b { animation: g-scan .2s forwards; animation-delay: calc(.45s + var(--i) * .05s); }
+@keyframes g-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes g-scan { to { background: #64d2ff; } }
 
-/* stack */
-.stack { margin-top: 3rem; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; background: var(--surface); }
-.stack div { display: grid; grid-template-columns: 11rem 1fr; gap: 1rem; padding: 1.05rem 1.5rem; border-top: 1px solid var(--border); }
-.stack div:first-child { border-top: 0; }
-.stack b { font-family: var(--font-mono); font-size: .78rem; font-weight: 500; color: var(--accent); padding-top: .15rem; }
-.stack span { color: var(--muted); }
-@media (max-width: 640px) { .stack div { grid-template-columns: 1fr; gap: .25rem; } }
+/* hardware: one card per part in the hero's card colours, each part drawn */
+.parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 3rem; }
+@media (max-width: 960px) { .parts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .parts { grid-template-columns: 1fr; } .p-board { grid-column: auto !important; } }
+.part { display: flex; flex-direction: column; min-height: 23rem; padding: 1.2rem 1.4rem 1.5rem; border-radius: 24px; overflow: hidden; }
+.part .tag { align-self: flex-start; display: inline-flex; align-items: center; gap: .4rem; background: #fff; color: #111; font-size: .78rem; padding: .28rem .65rem; border-radius: 999px; }
+.part .tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--c, #111); }
+.part .tag i.live { animation: pulse 1s ease-in-out infinite; }
+.part .art { flex: 1; display: grid; place-items: center; padding: 1.4rem 0 1.5rem; }
+.part .art svg { display: block; width: 100%; height: auto; overflow: visible; }
+.part h3 { font-size: 1.6rem; letter-spacing: -.018em; }
+.part p { margin-top: .35rem; max-width: 30rem; font-size: .97rem; line-height: 1.5; }
+.p-board { grid-column: span 2; background: #b1c6dd; color: #14233a; } .p-board p { color: #3c5372; }
+.p-board .art svg { max-width: 40rem; }
+.p-level { background: #ffdf6f; color: #1d0b0a; } .p-level p { color: #5a4a1a; }
+.p-level .art { place-items: start stretch; align-content: center; gap: 1.1rem; }
+.p-mux { background: #f9bef9; color: #2a0f2a; } .p-mux p { color: #6b3a6b; }
+.p-esp { background: #fff; color: #111; border: 1px solid #ececf0; box-shadow: 0 18px 44px -22px rgba(0,0,0,.28); } .p-esp p { color: var(--muted); }
+.p-esp .tag { background: #f2f2f4; }
+.p-relay { background: #b3f4b7; color: #132815; } .p-relay p { color: #2c4a30; }
+.volt { font-family: var(--font-display); font-size: clamp(4.4rem, 7vw, 6rem); line-height: .9; letter-spacing: -.035em; }
+.volt small { margin-left: .35rem; font-family: var(--font-sans); font-size: .3em; letter-spacing: 0; }
+.bb-strip { fill: #e3dfd3; animation: bb-lit 3.2s infinite; }
+.bb-pin { fill: #c9a14a; animation: bb-pin 3.2s infinite; }
+@keyframes bb-lit { 0%, 9%, 100% { fill: #e3dfd3; } 3% { fill: #8fb3ea; } }
+@keyframes bb-pin { 0%, 9%, 100% { fill: #c9a14a; } 3% { fill: #fff1b8; } }
+.lv-p { fill: none; stroke: #391312; stroke-width: 2.4; stroke-linejoin: round; opacity: .16; animation: lv-p 3.2s infinite; }
+@keyframes lv-p { 0%, 9%, 100% { opacity: .16; } 3% { opacity: 1; } }
+.mx-pin { fill: #cbc2cc; }
+.mx-pin.ch { animation: mx-ch 2.4s infinite; }
+@keyframes mx-ch { 0%, 12%, 100% { fill: #cbc2cc; } 4% { fill: #1f6fe0; } }
+.usb-flow { stroke-dasharray: 1 9; animation: flow 1s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -20; } }
+.esp-led { animation: blink 1.2s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .15; } }
+.rl-lever { transform-box: view-box; transform-origin: 110px 104px; animation: rl-lever 4.2s ease-in-out infinite; }
+.rl-ring { stroke-dasharray: 140; animation: rl-ring 4.2s ease-in-out infinite; }
+.rl-tick { stroke-dasharray: 30; animation: rl-tick 4.2s ease-in-out infinite; }
+.rl-flow { stroke-dasharray: 2 8; animation: rl-flow 4.2s infinite, flow .8s linear infinite; }
+@keyframes rl-lever { 0%, 46% { transform: rotate(-28deg); } 54%, 88% { transform: none; } 96%, 100% { transform: rotate(-28deg); } }
+@keyframes rl-ring { 0%, 6% { stroke-dashoffset: 140; } 30%, 88% { stroke-dashoffset: 0; } 96%, 100% { stroke-dashoffset: 140; } }
+@keyframes rl-tick { 0%, 24% { stroke-dashoffset: 30; } 40%, 88% { stroke-dashoffset: 0; } 96%, 100% { stroke-dashoffset: 30; } }
+@keyframes rl-flow { 0%, 54% { opacity: 0; } 58%, 86% { opacity: 1; } 90%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .guards .a, .guards.in .a { opacity: 1; animation: none; }
+  .guards.in .scanbar b { animation: none; background: #64d2ff; }
+  .part .tag i.live, .bb-strip, .bb-pin, .lv-p, .mx-pin.ch, .usb-flow, .esp-led, .rl-lever, .rl-ring, .rl-tick, .rl-flow { animation: none; }
+  .rl-ring, .rl-tick { stroke-dashoffset: 0; }
+}
 
 /* phone: the hero phone again, in dark mode with the real iMessage chrome */
 .iphone { position: relative; width: min(350px, 100%); aspect-ratio: 350 / 650; margin: 3rem auto 0; border-radius: 56px; background: #1a1a1a; padding: 9px; box-shadow: 0 0 0 1.5px #3a3a3e, 0 30px 70px -30px rgba(0,0,0,.45); text-align: left; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans); }
@@ -428,29 +512,150 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 </section>
 
 <section id="safety" class="dark">
-  <div class="wrap wrap-narrow">
-    <p class="eyebrow">Safety</p>
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow">Safety</p>
         <h2>The check decides. <span class="ital">Not a guess.</span></h2>
-        <p class="lead">The wiring check is plain code that compares a scan with the circuit plan. The AI reads the result and explains it. It does not decide whether power is allowed.</p>
-    <div style="margin-top:3rem">
-            <div class="rule"><b>01</b><p><strong>The check comes first.</strong> <code>power_on</code> runs a scan and refuses to switch power on if it finds a short, a stray link or a missing wire.</p></div>
-            <div class="rule"><b>02</b><p><strong>Power starts off.</strong> After a reset, the firmware sets the relay to off before any other code runs.</p></div>
-            <div class="rule"><b>03</b><p><strong>No scan while live.</strong> The multiplexers are disabled before power-on, and the board refuses to scan while power is on.</p></div>
-      <div class="rule"><b>04</b><p><strong>No remote power-on.</strong> You can text "cut the power" from anywhere. You cannot text it back on. That takes you, at the bench, after a clean check.</p></div>
+      </div>
+      <p class="lead">The wiring check is plain code that compares a scan with the circuit plan. The AI reads the result and explains it. It does not decide whether power is allowed.</p>
+    </div>
+
+    <div class="guards reveal">
+      <article class="guard">
+        <div class="g-vis" aria-hidden="true">
+          <div class="g-bar"><i></i><i></i><i></i><span>claude · tool call</span><span class="g-st">power off</span></div>
+          <div class="g-body">
+            <div class="ln a" style="--d:.2"><span class="dim">›</span> <span class="fn">power_on</span>()</div>
+            <div class="scanbar" id="scanBar"></div>
+            <div class="ln a" style="--d:1.4"><span class="dim">←</span> power stays off. fix these first:</div>
+            <div class="ln f a" style="--d:1.7"><b class="crit">critical</b><span>ground is connected to power (rows 1 → 5 → 6 → 2)</span></div>
+            <div class="ln f a" style="--d:2"><b class="warn">warn</b><span>row 7 and row 10 are not connected</span></div>
+          </div>
+        </div>
+        <div class="g-txt"><span class="g-n">01</span><h3>The check comes first.</h3><p><code>power_on</code> runs a scan and refuses to switch power on if it finds a short, a stray link or a missing wire.</p></div>
+      </article>
+
+      <article class="guard">
+        <div class="g-vis fade" aria-hidden="true">
+          <div class="g-bar"><i></i><i></i><i></i><span>firmware/smart_breadboard.ino</span></div>
+          <ol class="src">
+            <li><span><span class="kw">void</span> <span class="fn">setup</span>() {</span></li>
+            <li class="hl wrap5"><span>  <span class="cm">// power must be off before anything else runs, also after a reset</span></span></li>
+            <li class="hl"><span>  <span class="fn">pinMode</span>(POWER_PIN, OUTPUT);</span></li>
+            <li class="hl"><span>  <span class="fn">digitalWrite</span>(POWER_PIN, !POWER_ACTIVE_LEVEL);</span></li>
+            <li><span> </span></li>
+            <li><span>  <span class="kw">for</span> (uint8_t i = 0; i &lt; 4; i++) {</span></li>
+            <li><span>    <span class="fn">pinMode</span>(DRIVE_S[i], OUTPUT);</span></li>
+            <li><span>    <span class="fn">pinMode</span>(SENSE_S[i], OUTPUT);</span></li>
+          </ol>
+          <span class="g-st corner">relay off</span>
+        </div>
+        <div class="g-txt"><span class="g-n">02</span><h3>Power starts off.</h3><p>After a reset, the firmware sets the relay to off before any other code runs.</p></div>
+      </article>
+
+      <article class="guard">
+        <div class="g-vis" aria-hidden="true">
+          <div class="g-bar"><i></i><i></i><i></i><span>usb serial</span><span class="g-st" style="--c:#32d74b">power on</span></div>
+          <div class="mux-wrap">
+            <div class="mux" id="muxLock"></div>
+            <span class="mux-off a" style="--d:.3"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>multiplexers disabled</span>
+          </div>
+          <div class="g-body">
+            <div class="ln a" style="--d:.9"><span class="dim">→</span> SCAN</div>
+            <div class="ln a" style="--d:1.4"><span class="dim">←</span> {<span class="str">"t"</span>:<span class="str">"err"</span>,<span class="str">"msg"</span>:<span class="crit">"power is on, scan refused"</span>}</div>
+          </div>
+        </div>
+        <div class="g-txt"><span class="g-n">03</span><h3>No scan while live.</h3><p>The multiplexers are disabled before power-on, and the board refuses to scan while power is on.</p></div>
+      </article>
+
+      <article class="guard">
+        <div class="g-vis" aria-hidden="true">
+          <div class="g-bar"><span>imessage · probe</span><span class="g-st">power off</span></div>
+          <div class="g-msgs">
+            <div class="sb out a" style="--d:.2">cut the power</div>
+            <div class="sb in a" style="--d:.8">power cut. the board is off.</div>
+            <div class="sb out a" style="--d:1.6">turn it back on</div>
+            <div class="sb in a" style="--d:2.2">not by text. that takes you, at the bench, after a clean check.</div>
+          </div>
+        </div>
+        <div class="g-txt"><span class="g-n">04</span><h3>No remote power-on.</h3><p>You can text "cut the power" from anywhere. You cannot text it back on. That takes you, at the bench, after a clean check.</p></div>
+      </article>
     </div>
   </div>
 </section>
 
 <section id="stack">
-  <div class="wrap wrap-narrow">
+  <div class="wrap">
     <p class="eyebrow">Hardware</p>
     <h2>Small parts, <span class="ital">one job each</span>.</h2>
-    <div class="stack">
-      <div><b>Breadboard</b><span>16 rows wired underneath to header pins. This is the watched build area.</span></div>
-      <div><b>2 × CD74HC4067</b><span>16-channel multiplexers. One drives a test voltage, one senses every other row.</span></div>
-      <div><b>ESP32-S3</b><span>Runs the scan and the relay. Talks to the laptop over plain USB serial.</span></div>
-      <div><b>5 V relay</b><span>The power switch. It closes only after the check passes.</span></div>
-      <div><b>Scan level</b><span>3.3 V test voltage, with the power off.</span></div>
+    <div class="parts reveal">
+      <article class="part p-board">
+        <span class="tag" style="--c:#1f6fe0"><i class="live"></i>watched</span>
+        <div class="art"><svg viewBox="0 -34 600 236" aria-hidden="true"><g id="partBoard"></g></svg></div>
+        <h3>Breadboard</h3>
+        <p>16 rows wired underneath to header pins. This is the watched build area.</p>
+      </article>
+
+      <article class="part p-level">
+        <span class="tag" style="--c:#8b8d92"><i></i>power off</span>
+        <div class="art">
+          <div class="volt">3.3<small>V</small></div>
+          <svg viewBox="0 0 320 64" aria-hidden="true"><g id="partLevel"></g></svg>
+        </div>
+        <h3>Scan level</h3>
+        <p>3.3 V test voltage, with the power off.</p>
+      </article>
+
+      <article class="part p-mux">
+        <span class="tag" style="--c:#2a0f2a"><i></i>16 channels</span>
+        <div class="art"><svg viewBox="0 0 300 140" aria-hidden="true"><g id="partMux"></g></svg></div>
+        <h3>2 × CD74HC4067</h3>
+        <p>16-channel multiplexers. One drives a test voltage, one senses every other row.</p>
+      </article>
+
+      <article class="part p-esp">
+        <span class="tag" style="--c:#32d74b"><i class="live"></i>USB serial</span>
+        <div class="art">
+          <svg viewBox="0 0 300 150" aria-hidden="true">
+            <defs><linearGradient id="espCan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f3"/><stop offset="1" stop-color="#b8bcc4"/></linearGradient></defs>
+            <path d="M40 76 C 14 76, 18 128, -40 128" fill="none" stroke="#1d1f24" stroke-width="7" stroke-linecap="round"/>
+            <path class="usb-flow" d="M40 76 C 14 76, 18 128, -40 128" fill="none" stroke="#64d2ff" stroke-width="2.4" stroke-linecap="round"/>
+            <rect x="44" y="22" width="244" height="108" rx="9" fill="#1d1f24"/>
+            <g id="espPins"></g>
+            <rect x="32" y="63" width="22" height="26" rx="7" fill="#d4d7dc" stroke="#9a9ea6"/>
+            <rect x="74" y="56" width="28" height="28" rx="3" fill="#0f1013"/>
+            <rect x="74" y="96" width="13" height="9" rx="2" fill="#3a3d44"/><rect x="92" y="96" width="13" height="9" rx="2" fill="#3a3d44"/>
+            <circle class="esp-led" cx="122" cy="62" r="3" fill="#32d74b"/><circle cx="122" cy="76" r="3" fill="#ff453a"/>
+            <rect x="140" y="42" width="116" height="68" rx="4" fill="url(#espCan)"/>
+            <text x="198" y="80" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="11" fill="#5a5e66">ESP32-S3</text>
+            <rect x="256" y="42" width="24" height="68" rx="3" fill="#2a2d33"/>
+            <path d="M262 50 h12 v8 h-12 v8 h12 v8 h-12 v8 h12 v8 h-12 v8 h12" fill="none" stroke="#c9a14a" stroke-width="2"/>
+          </svg>
+        </div>
+        <h3>ESP32-S3</h3>
+        <p>Runs the scan and the relay. Talks to the laptop over plain USB serial.</p>
+      </article>
+
+      <article class="part p-relay">
+        <span class="tag" style="--c:#132815"><i></i>power switch</span>
+        <div class="art">
+          <svg viewBox="0 0 300 140" aria-hidden="true">
+            <circle class="rl-ring" cx="155" cy="38" r="22" fill="rgba(19,40,21,.08)" stroke="#132815" stroke-width="3" transform="rotate(-90 155 38)"/>
+            <path class="rl-tick" d="M145 39 l7 7 l12 -14" fill="none" stroke="#132815" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <g fill="none" stroke="#132815" stroke-width="3" stroke-linecap="round">
+              <path d="M16 104 H104"/><path d="M206 104 H284"/>
+              <path class="rl-lever" d="M110 104 H195"/>
+            </g>
+            <path class="rl-flow" d="M206 104 H284" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="110" cy="104" r="6" fill="#b3f4b7" stroke="#132815" stroke-width="3"/>
+            <circle cx="200" cy="104" r="6" fill="#b3f4b7" stroke="#132815" stroke-width="3"/>
+            <g font-family="ui-monospace, Menlo, monospace" font-size="12" fill="#2c4a30"><text x="16" y="128">5 V</text><text x="284" y="128" text-anchor="end">breadboard</text></g>
+          </svg>
+        </div>
+        <h3>5 V relay</h3>
+        <p>The power switch. It closes only after the check passes.</p>
+      </article>
     </div>
   </div>
 </section>
@@ -599,6 +804,48 @@ for (let i = 0; i < 16; i++) {
   t.textContent = i + 1;
 }
 document.getElementById('diagPath').setAttribute('d', `M${X(0)} 82 Q${(X(0) + X(4)) / 2} 30 ${X(4)} 82 M${X(4)} 82 Q${(X(4) + X(5)) / 2} 52 ${X(5)} 82 M${X(5)} 82 Q${(X(5) + X(1)) / 2} 30 ${X(1)} 82`);
+
+// safety cards: the scan bar that fills before power_on answers, and the locked mux rows
+const scanBar = document.getElementById('scanBar'), muxLock = document.getElementById('muxLock');
+for (let i = 0; i < 16; i++) { scanBar.insertAdjacentHTML('beforeend', `<b style="--i:${i}"></b>`); muxLock.insertAdjacentHTML('beforeend', '<b></b>'); }
+
+// hardware cards. the board and the scan level light row by row on the same 3.2 s beat
+const mono = 'ui-monospace, Menlo, monospace';
+const pb = document.getElementById('partBoard');
+el('rect', { x: 1, y: 1, width: 598, height: 146, rx: 14, fill: '#f4f2ec', stroke: '#d6d3c9' }, pb);
+el('rect', { x: 26, y: 166, width: 548, height: 30, rx: 6, fill: '#1d1f24' }, pb);
+for (let i = 0; i < 16; i++) {
+  const x = 45 + i * 34, delay = `animation-delay:${i * 0.2}s`;
+  el('line', { x1: x, y1: 147, x2: x, y2: 166, stroke: '#14233a', 'stroke-width': 1.5, 'stroke-dasharray': '3 4', opacity: .4 }, pb);
+  el('rect', { class: 'bb-strip', x: x - 10, y: 16, width: 20, height: 98, rx: 10, style: delay }, pb);
+  for (let k = 0; k < 5; k++) el('rect', { x: x - 3, y: 25 + k * 17, width: 6, height: 6, rx: 1.5, fill: '#8f8a7c' }, pb);
+  el('text', { x, y: 136, 'text-anchor': 'middle', 'font-size': 11, fill: '#8f8a7c', 'font-family': mono }, pb).textContent = i + 1;
+  el('rect', { class: 'bb-pin', x: x - 5, y: 176, width: 10, height: 10, rx: 1.5, style: delay }, pb);
+}
+el('path', { d: 'M113 45 C113 -26 283 -26 283 45', fill: 'none', stroke: '#c1502e', 'stroke-width': 5, 'stroke-linecap': 'round' }, pb);
+el('path', { d: 'M351 79 C351 30 453 30 453 79', fill: 'none', stroke: '#2a2c33', 'stroke-width': 5, 'stroke-linecap': 'round' }, pb);
+
+const pl = document.getElementById('partLevel');
+el('path', { d: 'M0 56 H320', stroke: '#391312', 'stroke-width': 2, opacity: .25 }, pl);
+for (let i = 0; i < 16; i++) { const x = 6 + i * 19.5; el('path', { class: 'lv-p', d: `M${x} 56 V12 H${x + 9} V56`, style: `animation-delay:${i * 0.2}s` }, pl); }
+
+// two 24-pin chips; the channel legs light one after another
+const pm = document.getElementById('partMux');
+[[18, 'drive'], [162, 'sense']].forEach(([x0, name]) => {
+  for (let i = 0; i < 12; i++) {
+    const x = x0 + 7 + i * 9.6;
+    el('rect', { class: 'mx-pin', x, y: 24, width: 4.5, height: 12, rx: 1 }, pm);
+    el('rect', { class: 'mx-pin ch', x, y: 92, width: 4.5, height: 12, rx: 1, style: `animation-delay:${i * 0.2}s` }, pm);
+  }
+  el('rect', { x: x0, y: 34, width: 120, height: 60, rx: 5, fill: '#1c1c21' }, pm);
+  el('circle', { cx: x0, cy: 64, r: 7, fill: '#f9bef9' }, pm);
+  el('circle', { cx: x0 + 12, cy: 84, r: 2.5, fill: '#3a3a42' }, pm);
+  el('text', { x: x0 + 62, y: 68, 'text-anchor': 'middle', 'font-size': 9.5, fill: '#9b9aa3', 'font-family': mono }, pm).textContent = 'CD74HC4067';
+  el('text', { x: x0 + 60, y: 128, 'text-anchor': 'middle', 'font-size': 12, fill: '#2a0f2a', 'font-family': mono }, pm).textContent = name;
+});
+
+const ep = document.getElementById('espPins');
+for (let i = 0; i < 22; i++) for (const y of [31, 121]) el('circle', { cx: 60 + i * 10, cy: y, r: 2.4, fill: '#c9a14a' }, ep);
 
 // the iMessage phone further down starts once it scrolls into view
 const imScript = [
