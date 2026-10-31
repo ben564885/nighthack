@@ -40,11 +40,33 @@
 // ---- relay or mosfet? change these two lines only ---------------------------
 // mosfet: HIGH turns power on, no settle delay.
 // relay module: many are active low (LOW turns power on), allow ~20 ms to settle.
-#define POWER_ACTIVE_LEVEL HIGH
-#define POWER_SETTLE_MS 2
+// test it: send ON, the relay must click and STATUS must show about 5000 mv. if the
+// relay clicks at boot instead, the polarity is wrong: flip the level.
+#define POWER_ACTIVE_LEVEL LOW
+#define POWER_SETTLE_MS 20
 // -----------------------------------------------------------------------------
 
-#if defined(ARDUINO_ARCH_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+// lckfb esp32-s3 board (3.3v and 5v). pins as wired by the team.
+//   mux select lines S0-S3 = gpio 1-4, drive mux enable = 5, sense mux enable = 6,
+//   drive mux sig = 7, sense mux sig = 8 (adc1), relay = 9.
+const uint8_t DRIVE_S[4] = {1, 2, 3, 4};
+const uint8_t DRIVE_EN = 5;
+const uint8_t SENSE_EN = 6;
+const uint8_t DRIVE_SIG = 7;
+const uint8_t SENSE_SIG = 8;   // adc1
+const uint8_t POWER_PIN = 9;
+// ---- NOT WIRED YET: the sense mux needs its own four select pins -----------------
+// both muxes cannot share S0-S3. with one shared select code both muxes always pick the
+// same row, so the board could only compare a row with itself. wire the sense mux S0-S3
+// to four more gpio and set them here. these four are placeholders.
+const uint8_t SENSE_S[4] = {13, 14, 15, 16};
+// ----------------------------------------------------------------------------------
+const uint8_t THERM_PIN = 10;  // adc1 (placeholder, only if a thermistor is fitted)
+const int I2C_SDA = 11;        // ina219 + oled (placeholders, confirm). do not use 8/9:
+const int I2C_SCL = 12;        // those are the arduino default and are taken above.
+const int ADC_MAX = 4095;      // 12 bit
+#elif defined(ARDUINO_ARCH_ESP32)
 // classic esp32 devkit. avoids strapping pins (0 2 5 12 15) and flash pins (6-11).
 // gpio 34-39 are input only, which is fine for the adc pins.
 const uint8_t DRIVE_S[4] = {16, 17, 18, 19};
@@ -55,6 +77,8 @@ const uint8_t SENSE_EN = 33;
 const uint8_t SENSE_SIG = 34;  // adc1
 const uint8_t THERM_PIN = 35;  // adc1
 const uint8_t POWER_PIN = 4;
+const int I2C_SDA = 21;
+const int I2C_SCL = 22;
 const int ADC_MAX = 4095;      // 12 bit
 #else
 // arduino uno / nano
@@ -92,6 +116,19 @@ void muxesOff() {
   digitalWrite(DRIVE_EN, HIGH);
   digitalWrite(SENSE_EN, HIGH);
   pinMode(DRIVE_SIG, INPUT);  // float the drive line so it cannot touch a live circuit
+}
+
+// true if both muxes were wired to the same select pins. a scan would be meaningless.
+bool sharedSelects() {
+  for (uint8_t i = 0; i < 4; i++)
+    if (DRIVE_S[i] == SENSE_S[i]) return true;
+  return false;
+}
+
+// the rails should be dead while power is off. voltage here means the relay polarity is
+// wrong, or the supply is wired around the switch.
+bool powerPresentWhileOff() {
+  return haveIna && !powerOn && ina.getBusVoltage_V() > 1.0;
 }
 
 float readTempC() {
@@ -214,6 +251,8 @@ void handle(String line) {
     Serial.println(F("{\"t\":\"pong\"}"));
   } else if (line == "SCAN") {
     if (powerOn) Serial.println(F("{\"t\":\"err\",\"msg\":\"power is on, scan refused\"}"));
+    else if (sharedSelects()) Serial.println(F("{\"t\":\"err\",\"msg\":\"both muxes share select pins, scan impossible\"}"));
+    else if (powerPresentWhileOff()) Serial.println(F("{\"t\":\"err\",\"msg\":\"voltage on rails while off, check relay polarity\"}"));
     else doScan();
   } else if (line == "ON") {
     muxesOff();  // the scan layer must never touch a live circuit
@@ -254,7 +293,11 @@ void setup() {
   muxesOff();
 
   Serial.begin(115200);
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  Serial.setTxTimeoutMs(0);  // native usb: never block when no host is connected
+#endif
 #if defined(ARDUINO_ARCH_ESP32)
+  Wire.begin(I2C_SDA, I2C_SCL);
   analogReadResolution(12);
   analogSetPinAttenuation(SENSE_SIG, ADC_11db);  // full 0-3.3v range
   analogSetPinAttenuation(THERM_PIN, ADC_11db);

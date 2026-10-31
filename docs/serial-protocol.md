@@ -23,7 +23,13 @@ plain text over usb serial. no mcp, no framing library. the esp32 firmware and
 
 ## errors
 
-`{"t":"err","msg":"power is on, scan refused"}` and `{"t":"err","msg":"unknown command"}`.
+`{"t":"err","msg":"..."}`. messages the firmware sends:
+
+- `power is on, scan refused`
+- `both muxes share select pins, scan impossible` (wiring problem, see the s3 note in `CONTEXT.md`)
+- `voltage on rails while off, check relay polarity`
+- `maxma out of range`, `unknown command`
+
 one reply per command, so a host can match replies to requests by order.
 
 ## messages the board sends by itself

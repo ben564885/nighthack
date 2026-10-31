@@ -74,6 +74,22 @@ Power supply -> INA219 (current/voltage sensor) -> logic-level MOSFET (on/off sw
 - A small temperature sensor (thermistor or MLX90614) sits near the parts.
 - **Open question:** a relay may replace the MOSFET. See section 6.
 
+### Board and pins (current, as wired by the team)
+LCKFB ESP32-S3 (3.3V and 5V). 5V relay for the power switch.
+
+| signal | GPIO |
+|---|---|
+| mux select S0-S3 | 1, 2, 3, 4 |
+| drive mux enable (CS) | 5 |
+| sense mux enable (CS) | 6 |
+| drive mux SIG | 7 |
+| sense mux SIG (ADC) | 8 |
+| relay control | 9 |
+
+**Open hardware problem:** both muxes use the same select pins (S0-S3 on GPIO 1-4). That cannot work. Both muxes always pick the same row, so the board can only compare a row with itself and never finds a link between two rows. The sense mux needs its own four select pins. Wire them to four free GPIO and set `SENSE_S` in the firmware (placeholders: 13, 14, 15, 16). The firmware refuses to scan while the pins are shared.
+
+Also to confirm: I2C pins for the INA219 and OLED (placeholders: SDA 11, SCL 12; not 8 or 9), the thermistor pin (placeholder: 10), and relay polarity (firmware default: active low).
+
 ### Brain
 - **ESP32** (changed from Arduino) runs the scan, the power switch and the safety cutoff. The same sketch also builds for an Arduino Uno.
 - 3.3V logic. The muxes, INA219 and OLED run from 3.3V, so the test voltage is 3.3V. The power switch must work with a 3.3V signal: a logic-level MOSFET, or a relay module rated for 3.3V.

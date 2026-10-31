@@ -57,7 +57,14 @@ npm run bridge     # laptop <-> cloud hub (set CLOUD_URL and HUB_TOKEN)
 BOARD=serial npm run hub          # auto-detects the arduino, or set SERIAL_PORT=/dev/cu.usbmodem...
 ```
 
-flash `firmware/smart_breadboard` first: `arduino-cli compile --fqbn esp32:esp32:esp32 firmware/smart_breadboard` (or `arduino:avr:uno`). pin maps are at the top of the sketch.
+flash `firmware/smart_breadboard` first. pin maps are at the top of the sketch.
+
+```sh
+# lckfb esp32-s3 (native usb serial)
+arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc firmware/smart_breadboard
+arduino-cli upload  --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc -p /dev/cu.usbmodemXXXX firmware/smart_breadboard
+# classic esp32: --fqbn esp32:esp32:esp32     arduino uno: --fqbn arduino:avr:uno
+```
 relay instead of mosfet: edit `POWER_ACTIVE_LEVEL` and `POWER_SETTLE_MS` at the top of the sketch. nothing else changes.
 
 ## layout
