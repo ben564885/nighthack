@@ -323,6 +323,11 @@ void setup() {
   analogReadResolution(12);
   analogSetPinAttenuation(SENSE_SIG, ADC_11db);  // full 0-3.3v range
   analogSetPinAttenuation(THERM_PIN, ADC_11db);
+  // no 100k on the sense line: use the internal pull-down (~45k) instead.
+  // enabled after the first analogRead, which sets the pin up for the adc.
+  analogRead(SENSE_SIG);
+  gpio_pullup_dis((gpio_num_t)SENSE_SIG);
+  gpio_pulldown_en((gpio_num_t)SENSE_SIG);
 #endif
 #if USE_I2C
 #if defined(ARDUINO_ARCH_ESP32)
