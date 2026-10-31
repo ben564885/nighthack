@@ -41,7 +41,7 @@ jobs:
           echo '138.68.238.172 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMd0TFQplnxmYQQVTfkT6RsC6ZFzSlP9ut9YgD/eB/fa' >> ~/.ssh/known_hosts
 
       - name: copy the website (site/ only, no restart)
-        run: rsync -rltz --delete --chmod=D2775,F664 -e "ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" site/ sitedeploy@138.68.238.172:/opt/breadboard/site/
+        run: rsync -rltz --omit-dir-times --delete --chmod=D2775,F664 -e "ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" site/ sitedeploy@138.68.238.172:/opt/breadboard/site/
 
       - name: live landing page is this commit's
         run: curl -fsS -m 20 https://breadboard.bennisevich.com/ | cmp - site/index.html
