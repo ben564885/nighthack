@@ -36,6 +36,12 @@ export class PhotonChannel {
       console.log('[photon] off: set PHOTON_API_KEY and PHOTON_PROJECT_ID');
       return;
     }
+    // PHOTON_POLL=0: send texts but never read them. for a second hub (a local demo or test) that must
+    // not answer the owner's messages a second time.
+    if (process.env.PHOTON_POLL === '0') {
+      console.log('[photon] send only: not reading texts on this hub');
+      return;
+    }
     const tick = async () => {
       try {
         const page: any = await this.api().projects.listMessages({
