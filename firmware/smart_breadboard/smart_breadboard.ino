@@ -33,9 +33,19 @@
 //
 // libraries: Adafruit INA219, Adafruit SSD1306, Adafruit GFX
 
+// the team's esp32-s3 build has no i2c parts: no ina219 (current), no oled.
+// without the ina219 there is NO current protection. the guard then only watches temperature.
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+#define USE_I2C 0
+#else
+#define USE_I2C 1
+#endif
+
+#if USE_I2C
 #include <Wire.h>
 #include <Adafruit_INA219.h>
 #include <Adafruit_SSD1306.h>
+#endif
 
 // ---- relay or mosfet? change these two lines only ---------------------------
 // mosfet: HIGH turns power on, no settle delay.
@@ -56,15 +66,11 @@ const uint8_t SENSE_EN = 6;
 const uint8_t DRIVE_SIG = 7;
 const uint8_t SENSE_SIG = 8;   // adc1
 const uint8_t POWER_PIN = 9;
-// ---- NOT WIRED YET: the sense mux needs its own four select pins -----------------
-// both muxes cannot share S0-S3. with one shared select code both muxes always pick the
-// same row, so the board could only compare a row with itself. wire the sense mux S0-S3
-// to four more gpio and set them here. these four are placeholders.
-const uint8_t SENSE_S[4] = {13, 14, 15, 16};
-// ----------------------------------------------------------------------------------
+// the sense mux has its own select pins. S0 = 18, S1 = 17, S2 = 16, S3 = 15 (this order).
+const uint8_t SENSE_S[4] = {18, 17, 16, 15};
 const uint8_t THERM_PIN = 10;  // adc1 (placeholder, only if a thermistor is fitted)
-const int I2C_SDA = 11;        // ina219 + oled (placeholders, confirm). do not use 8/9:
-const int I2C_SCL = 12;        // those are the arduino default and are taken above.
+const int I2C_SDA = -1;        // not used on this build
+const int I2C_SCL = -1;
 const int ADC_MAX = 4095;      // 12 bit
 #elif defined(ARDUINO_ARCH_ESP32)
 // classic esp32 devkit. avoids strapping pins (0 2 5 12 15) and flash pins (6-11).
@@ -102,8 +108,10 @@ bool powerOn = false;
 uint8_t overCount = 0;
 unsigned long lastGuard = 0;
 
+#if USE_I2C
 Adafruit_INA219 ina;
 Adafruit_SSD1306 oled(128, 64, &Wire, -1);
+#endif
 bool haveOled = false;
 bool haveIna = false;
 
@@ -128,7 +136,11 @@ bool sharedSelects() {
 // the rails should be dead while power is off. voltage here means the relay polarity is
 // wrong, or the supply is wired around the switch.
 bool powerPresentWhileOff() {
+#if USE_I2C
   return haveIna && !powerOn && ina.getBusVoltage_V() > 1.0;
+#else
+  return false;
+#endif
 }
 
 float readTempC() {
@@ -141,6 +153,7 @@ float readTempC() {
 }
 
 void show(const char* a, const char* b = "") {
+#if USE_I2C
   if (!haveOled) return;
   oled.clearDisplay();
   oled.setTextColor(SSD1306_WHITE);
@@ -151,6 +164,7 @@ void show(const char* a, const char* b = "") {
   oled.setCursor(0, 44);
   oled.println(b);
   oled.display();
+#endif
 }
 
 void setPower(bool on) {
@@ -213,8 +227,13 @@ void doScan() {
 
 // ---- status -----------------------------------------------------------------
 void sendStatus() {
-  float mv = haveIna ? ina.getBusVoltage_V() * 1000.0 : 0;
-  float ma = haveIna ? ina.getCurrent_mA() : 0;
+  float mv = 0, ma = 0;
+#if USE_I2C
+  if (haveIna) {
+    mv = ina.getBusVoltage_V() * 1000.0;
+    ma = ina.getCurrent_mA();
+  }
+#endif
   Serial.print(F("{\"t\":\"status\",\"power\":"));
   Serial.print(powerOn ? F("true") : F("false"));
   Serial.print(F(",\"mv\":"));
@@ -223,6 +242,8 @@ void sendStatus() {
   Serial.print((int)ma);
   Serial.print(F(",\"tc\":"));
   Serial.print(readTempC(), 1);
+  Serial.print(F(",\"cs\":"));  // cs = a current sensor is fitted
+  Serial.print(haveIna ? F("true") : F("false"));
   Serial.println('}');
 }
 
@@ -232,6 +253,7 @@ void guard() {
   if (millis() - lastGuard < 5) return;
   lastGuard = millis();
 
+#if USE_I2C
   if (haveIna) {
     // two reads in a row, so one noisy sample cannot cut a good build
     if (ina.getCurrent_mA() > maxMa) {
@@ -240,6 +262,7 @@ void guard() {
       overCount = 0;
     }
   }
+#endif
   if (readTempC() > MAX_TEMP_C) cutPower("overtemperature");
 }
 
@@ -297,14 +320,20 @@ void setup() {
   Serial.setTxTimeoutMs(0);  // native usb: never block when no host is connected
 #endif
 #if defined(ARDUINO_ARCH_ESP32)
-  Wire.begin(I2C_SDA, I2C_SCL);
   analogReadResolution(12);
   analogSetPinAttenuation(SENSE_SIG, ADC_11db);  // full 0-3.3v range
   analogSetPinAttenuation(THERM_PIN, ADC_11db);
 #endif
+#if USE_I2C
+#if defined(ARDUINO_ARCH_ESP32)
+  Wire.begin(I2C_SDA, I2C_SCL);
+#else
+  Wire.begin();
+#endif
   haveIna = ina.begin();
   if (haveIna) ina.setCalibration_32V_2A();
   haveOled = oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+#endif
   show("ready", haveIna ? "ina219 ok" : "no ina219");
   Serial.println(F("{\"t\":\"ready\"}"));
 }

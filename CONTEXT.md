@@ -79,20 +79,23 @@ LCKFB ESP32-S3 (3.3V and 5V). 5V relay for the power switch.
 
 | signal | GPIO |
 |---|---|
-| mux select S0-S3 | 1, 2, 3, 4 |
+| drive mux select S0-S3 | 1, 2, 3, 4 |
+| sense mux select S0-S3 | 18, 17, 16, 15 (S0 = 18) |
 | drive mux enable (CS) | 5 |
 | sense mux enable (CS) | 6 |
 | drive mux SIG | 7 |
 | sense mux SIG (ADC) | 8 |
 | relay control | 9 |
 
-**Open hardware problem:** both muxes use the same select pins (S0-S3 on GPIO 1-4). That cannot work. Both muxes always pick the same row, so the board can only compare a row with itself and never finds a link between two rows. The sense mux needs its own four select pins. Wire them to four free GPIO and set `SENSE_S` in the firmware (placeholders: 13, 14, 15, 16). The firmware refuses to scan while the pins are shared.
+No I2C parts: no INA219 and no OLED.
 
-Also to confirm: I2C pins for the INA219 and OLED (placeholders: SDA 11, SCL 12; not 8 or 9), the thermistor pin (placeholder: 10), and relay polarity (firmware default: active low).
+**Safety gap: no current sensor.** The INA219 did the current measurement and the automatic overcurrent cutoff. Without it, the board cannot cut power on overload. The firmware reports this (`"cs":false`), and the Notch shows "no current sensor" while power is on. Temperature cutoff works only if a thermistor is fitted (placeholder pin 10). Options: a shunt resistor or an analog current sensor (ACS712) read by a spare ADC pin, or accept it and say so in the pitch. Decision needed.
+
+Relay polarity is not confirmed yet (firmware default: active low). The relay-polarity self-check needed the INA219, so it is off in this build.
 
 ### Brain
 - **ESP32** (changed from Arduino) runs the scan, the power switch and the safety cutoff. The same sketch also builds for an Arduino Uno.
-- 3.3V logic. The muxes, INA219 and OLED run from 3.3V, so the test voltage is 3.3V. The power switch must work with a 3.3V signal: a logic-level MOSFET, or a relay module rated for 3.3V.
+- 3.3V logic. The muxes run from 3.3V, so the test voltage is 3.3V. The power switch must work with a 3.3V signal: a logic-level MOSFET, or a relay module rated for 3.3V.
 - The host talks to the board by plain serial commands. See `docs/serial-protocol.md`. No MCP between the laptop and the board.
 - It kills the switch **on its own** if current or temperature exceeds limits. No laptop required.
 

@@ -14,6 +14,8 @@ export interface Telemetry {
   mv: number;
   ma: number;
   tc: number;
+  /** false when the board has no current sensor. then ma is not a measurement. */
+  sensed?: boolean;
 }
 
 export interface Finding {

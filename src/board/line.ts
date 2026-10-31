@@ -114,7 +114,9 @@ export class LineBoard implements Board {
     await this.request(on ? 'ON' : 'OFF', ['ok']);
   }
   async status() {
-    return (await this.request('STATUS', ['status'])) as unknown as Telemetry & { power: boolean };
+    const m = await this.request('STATUS', ['status']);
+    // the firmware reports cs=false when no current sensor is fitted
+    return { power: Boolean(m.power), mv: Number(m.mv), ma: Number(m.ma), tc: Number(m.tc), sensed: m.cs !== false };
   }
   async setLimits(maxMa: number) {
     await this.request(`SET MAXMA ${Math.round(maxMa)}`, ['ok']);

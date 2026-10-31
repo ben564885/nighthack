@@ -238,7 +238,7 @@ function render(st) {
 
   $('title').textContent = st.phase === 'fault' ? (critical ? 'danger: do not power on' : 'wiring issue') : st.headline;
   $('meta').textContent =
-    st.phase === 'powered' ? `${(st.telemetry.mv / 1000).toFixed(2)} v` :
+    st.phase === 'powered' ? (st.telemetry.sensed === false ? 'on' : `${(st.telemetry.mv / 1000).toFixed(2)} v`) :
     st.phase === 'fault' ? `${st.findings.length} issue${st.findings.length === 1 ? '' : 's'}` :
     st.mode === 'sim' ? 'sim' : '';
 
@@ -274,12 +274,22 @@ function render(st) {
     if (st.phase === 'cut') h = 172;
   } else if (st.phase === 'powered') {
     const t = st.telemetry;
-    html = `<div class="live">
-      <div><small>voltage</small><span>${(t.mv / 1000).toFixed(2)}<i>v</i></span></div>
-      <div><small>current</small><span>${Math.round(t.ma)}<i>ma</i></span></div>
-      <div><small>temp</small><span>${Math.round(t.tc)}<i>c</i></span></div></div>
-      <div class="fix" style="margin-top:10px">watching. power cuts by itself if anything goes wrong.</div>`;
-    h = 150;
+    if (t.sensed === false) {
+      // no current sensor: say so, instead of showing a made-up 0 ma
+      html = `<div class="live">
+        <div><small>power</small><span>on</span></div>
+        <div><small>current</small><span style="font-size:14px;color:var(--warn)">not measured</span></div>
+        <div><small>temp</small><span>${Math.round(t.tc)}<i>c</i></span></div></div>
+        <div class="fix" style="margin-top:10px"><b style="color:var(--warn)">no current sensor</b> the board cannot cut power on overload. watch the circuit.</div>`;
+      h = 158;
+    } else {
+      html = `<div class="live">
+        <div><small>voltage</small><span>${(t.mv / 1000).toFixed(2)}<i>v</i></span></div>
+        <div><small>current</small><span>${Math.round(t.ma)}<i>ma</i></span></div>
+        <div><small>temp</small><span>${Math.round(t.tc)}<i>c</i></span></div></div>
+        <div class="fix" style="margin-top:10px">watching. power cuts by itself if anything goes wrong.</div>`;
+      h = 150;
+    }
   }
   $('bodyEl').innerHTML = html;
   $('notch').style.setProperty('--h', h + NH + 'px');

@@ -92,7 +92,7 @@ export class Hub extends EventEmitter {
     this.poll = setInterval(async () => {
       try {
         const s = await this.board.status();
-        if (s.power) this.set({ telemetry: { mv: s.mv, ma: s.ma, tc: s.tc } });
+        if (s.power) this.set({ telemetry: { mv: s.mv, ma: s.ma, tc: s.tc, sensed: s.sensed !== false } });
       } catch {
         /* a missed read is not a fault. the board guards itself. */
       }

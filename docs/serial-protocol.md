@@ -18,7 +18,7 @@ plain text over usb serial. no mcp, no framing library. the esp32 firmware and
 | `SCAN` | `{"t":"scan","links":[[1,5],[2,6]]}` | maps connected rows. refused while power is on |
 | `ON` | `{"t":"ok"}` | muxes are disabled first, then power switches on. the host checks wiring before sending this |
 | `OFF` | `{"t":"ok"}` | power off. always allowed |
-| `STATUS` | `{"t":"status","power":true,"mv":4980,"ma":56,"tc":26.5}` | voltage mv, current ma, temperature c |
+| `STATUS` | `{"t":"status","power":true,"mv":4980,"ma":56,"tc":26.5,"cs":true}` | voltage mv, current ma, temperature c. `cs` = a current sensor is fitted. When `cs` is false, `mv` and `ma` are 0 and mean nothing, and there is no overcurrent cutoff |
 | `SET MAXMA <n>` | `{"t":"ok"}` | current limit, 20..3000 ma. default 400 |
 
 ## errors
@@ -45,8 +45,8 @@ if the host sees `ready` while it thinks power is on, the board restarted and po
 ## safety rules the firmware keeps on its own
 
 - power is off at boot, before any other code runs.
-- the guard loop reads current and temperature every 5 ms while power is on and cuts power
-  by itself. it never waits for the host.
+- the guard loop reads current (if a sensor is fitted) and temperature every 5 ms while power is on and
+  cuts power by itself. it never waits for the host.
 - the muxes are disabled before `ON`, and `SCAN` is refused while power is on.
 
 ## trying it by hand
