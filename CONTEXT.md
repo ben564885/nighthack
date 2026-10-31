@@ -146,6 +146,8 @@ The Mac shows the Notch. A Photon iMessage agent also sends a text to the user. 
 
 ## 3d. Build Status (software)
 
+**Production:** https://138-68-238-172.sslip.io (landing page at `/`). Runs on the team's DigitalOcean droplet. Details and commands are in `README.md`. The secret `HUB_TOKEN` is not in git: ask Ben.
+
 Built and tested in simulation. See `README.md` for how to run.
 
 | Part | State |
@@ -160,7 +162,7 @@ Built and tested in simulation. See `README.md` for how to run.
 | Text agent (Claude, tools, instant "cut power") | done, tested with sim |
 | Firmware | compiles for Uno. **Not tested on hardware.** |
 | Serial board driver | written, **not tested on hardware** |
-| Photon iMessage | code written. **Needs `PHOTON_PROJECT_ID`.** Not tested with the real API. |
+| Photon iMessage | running in production, polling with the real key. Agent number **+16283167976**. **Owner must text it once** before alerts can send. Round trip not yet tested. |
 | Phone call | code written for ElevenLabs over Photon SIP. **Not tested.** Needs a dedicated Photon number and ElevenLabs keys. |
 
 ### Photon facts (from the 2.0 beta docs)

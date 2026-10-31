@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "smart-breadboard": {
-      "command": "npx",
-      "args": ["tsx", "src/mcp.ts"]
+      "type": "http",
+      "url": "https://138-68-238-172.sslip.io/mcp?key=${HUB_TOKEN}"
     }
   }
 }
