@@ -260,14 +260,42 @@ section .lead { margin-top: 1.25rem; max-width: 40rem; color: var(--muted); font
 .stack span { color: var(--muted); }
 @media (max-width: 640px) { .stack div { grid-template-columns: 1fr; gap: .25rem; } }
 
-/* phone */
-.phone { max-width: 20rem; margin: 3rem auto 0; background: #0b0b0d; border-radius: 38px; padding: 1.1rem; box-shadow: var(--shadow-card); }
-.phone .thread { background: #000; border-radius: 28px; padding: 1.4rem 1rem 1.6rem; display: flex; flex-direction: column; gap: .5rem; min-height: 22rem; }
-.bubble { max-width: 82%; padding: .6rem .85rem; border-radius: 18px; font-size: .9rem; line-height: 1.35; opacity: 0; transform: translateY(8px); animation: pop .5s forwards; }
-.bubble.in { background: #26262a; color: #fff; align-self: flex-start; }
-.bubble.out { background: #0a84ff; color: #fff; align-self: flex-end; }
-@keyframes pop { to { opacity: 1; transform: none; } }
-.phone .who { text-align: center; color: #8e8e93; font-size: .7rem; margin-bottom: .6rem; }
+/* phone: the hero phone again, in dark mode with the real iMessage chrome */
+.iphone { position: relative; width: min(350px, 100%); aspect-ratio: 350 / 650; margin: 3rem auto 0; border-radius: 56px; background: #1a1a1a; padding: 9px; box-shadow: 0 0 0 1.5px #3a3a3e, 0 30px 70px -30px rgba(0,0,0,.45); text-align: left; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans); }
+.iphone-screen { position: relative; height: 100%; border-radius: 47px; background: #000; color: #fff; overflow: hidden; display: flex; flex-direction: column; }
+.im-status { position: absolute; inset: 0 0 auto; z-index: 3; height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px 0 38px; font-size: 14px; font-weight: 600; }
+.im-status svg { display: block; fill: #fff; }
+.im-sys { display: flex; align-items: center; gap: 5px; }
+.im-head { position: absolute; inset: 0 0 auto; z-index: 2; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding: 52px 8px 9px; background: rgba(24,24,26,.78); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); border-bottom: .5px solid rgba(255,255,255,.12); }
+.im-head > svg { justify-self: center; width: 24px; height: 24px; fill: none; stroke: #0a84ff; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.im-who { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.im-who img { width: 50px; height: 50px; border-radius: 50%; }
+.im-who span { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; line-height: 1; }
+.im-who span::after { content: ""; width: 4px; height: 4px; border: solid #8e8e93; border-width: 1.5px 1.5px 0 0; transform: rotate(45deg); }
+.im-thread { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow: hidden; padding: 142px 16px 12px; transition: opacity .45s; }
+.im-thread.fade { opacity: 0; }
+.im-meta { text-align: center; font-size: 11px; line-height: 1.35; color: #8e8e93; margin-bottom: 4px; }
+.im-meta b { font-weight: 600; }
+.iphone .bub { position: relative; max-width: 76%; padding: 7px 12px; border-radius: 18px; font-size: 14px; line-height: 1.32; }
+.iphone .bub.in { background: #262628; color: #fff; }
+.iphone .bub.out { background: #0a84ff; }
+/* bubble tails: a curve in the bubble colour with a black cut-out laid over it */
+.iphone .bub::before, .iphone .bub::after { content: ""; position: absolute; bottom: 0; height: 16px; }
+.iphone .bub.out::before { right: -6px; width: 16px; background: #0a84ff; border-bottom-left-radius: 13px 11px; }
+.iphone .bub.out::after { right: -10px; width: 10px; background: #000; border-bottom-left-radius: 8px; }
+.iphone .bub.in::before { left: -6px; width: 16px; background: #262628; border-bottom-right-radius: 13px 11px; }
+.iphone .bub.in::after { left: -10px; width: 10px; background: #000; border-bottom-right-radius: 8px; }
+.iphone .bub.typing { padding: 11px 13px; }
+.iphone .bub.typing::before { left: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #262628; }
+.iphone .bub.typing::after { left: -6px; bottom: -6px; width: 5px; height: 5px; border-radius: 50%; background: #262628; }
+.iphone .bub.typing i { background: #8e8e93; }
+.receipt { align-self: flex-end; margin: -7px 4px 0 0; font-size: 11px; font-weight: 500; color: #8e8e93; animation: rcpt-in .3s .5s both; }
+@keyframes rcpt-in { from { opacity: 0; } }
+.im-input { display: flex; align-items: center; gap: 8px; padding: 6px 12px 0; }
+.im-plus { flex: none; width: 32px; height: 32px; border-radius: 50%; background: #262628; display: grid; place-items: center; }
+.im-input svg { width: 16px; height: 16px; fill: none; stroke: #9a9aa0; stroke-width: 1.8; stroke-linecap: round; }
+.im-field { flex: 1; display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 10px 0 14px; border: 1px solid #38383a; border-radius: 17px; font-size: 14px; color: #6c6c70; }
+.im-home { width: 120px; height: 5px; margin: 16px auto 8px; border-radius: 3px; background: #fff; }
 
 footer { padding: 3rem 0 4rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .9rem; }
 footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
@@ -275,7 +303,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
 .reveal.in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .bubble { animation: none; opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .bub, .receipt { animation: none; } }
 </style>
 </head>
 <body>
@@ -443,9 +471,26 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
   <div class="wrap">
     <p class="eyebrow">Away from the bench</p>
     <h2>Ask it from <span class="ital">anywhere</span>.</h2>
-    <div class="phone reveal" id="phoneCard">
-      <div class="who">Smart Breadboard</div>
-      <div class="thread" id="thread"></div>
+    <div class="iphone reveal" id="phoneCard" aria-label="example iMessage conversation with Probe">
+      <div class="iphone-screen">
+        <div class="island"></div>
+        <div class="im-status" aria-hidden="true"><span>9:41</span><span class="im-sys">
+          <svg width="17" height="11" viewBox="0 0 18 12"><rect y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+          <svg width="15" height="11" viewBox="0 0 16 12"><path d="M8 12 5.5 9.4a3.6 3.6 0 0 1 5 0zM2.9 6.8a7.3 7.3 0 0 1 10.2 0l-1.5 1.5a5.2 5.2 0 0 0-7.2 0zM.3 4.2a11 11 0 0 1 15.4 0l-1.5 1.5a8.9 8.9 0 0 0-12.4 0z"/></svg>
+          <svg width="25" height="11" viewBox="0 0 27 12"><rect x=".5" y=".5" width="23" height="11" rx="3.5" fill="none" stroke="#fff" stroke-opacity=".4"/><rect x="2" y="2" width="20" height="8" rx="2"/><path d="M25 4.2v3.6c.8-.3 1.3-1 1.3-1.8s-.5-1.5-1.3-1.8z" fill-opacity=".4"/></svg>
+        </span></div>
+        <div class="im-head" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M15 4 7.5 12 15 20"/></svg>
+          <div class="im-who"><img src="/assets/favicon.svg?v=2" alt=""><span>Probe</span></div>
+          <svg viewBox="0 0 24 24"><path d="M2.5 8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2zM15.5 10.5l5-3v9l-5-3"/></svg>
+        </div>
+        <div class="im-thread" id="thread"><div class="im-meta">iMessage<br><b>Today</b> 9:41 PM</div></div>
+        <div class="im-input" aria-hidden="true">
+          <span class="im-plus"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+          <span class="im-field">iMessage<svg viewBox="0 0 16 16"><path d="M8 1.5a2 2 0 0 1 2 2v4a2 2 0 0 1-4 0v-4a2 2 0 0 1 2-2zM4 7.5a4 4 0 0 0 8 0M8 11.5v3"/></svg></span>
+        </div>
+        <div class="im-home"></div>
+      </div>
     </div>
     <p class="caption" style="text-align:center">example conversation</p>
   </div>
@@ -491,9 +536,33 @@ addEventListener('scroll', onScrollHeader, { passive: true }); onScrollHeader();
 const hTrack = document.getElementById('builtTrack');
 hTrack.innerHTML += hTrack.innerHTML;
 
-// the texting demo in the phone: the same words the agent really sends
-const hThread = document.getElementById('heroThread');
-const hSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// the texting demos in both phones: the same words the agent really sends.
+// typing dots before each reply, then the thread fades and plays again
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function playThread(box, script, receipts) {
+  const add = (kind, text) => {
+    const b = document.createElement('div'); b.className = 'bub ' + kind; if (text) b.textContent = text;
+    box.appendChild(b); box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' }); return b;
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { script.forEach(([k, t]) => add(k, t)); return; }
+  (async () => {
+    for (;;) {
+      box.querySelectorAll('.bub, .receipt').forEach((n) => n.remove());
+      for (const [kind, text, gap] of script) {
+        await sleep(gap);
+        const seen = box.querySelector('.receipt');
+        if (kind === 'in') { if (seen) seen.textContent = 'Read'; const t = add('in typing'); t.innerHTML = '<i></i><i></i><i></i>'; await sleep(950); t.remove(); }
+        if (seen) seen.remove();
+        add(kind, text);
+        // iMessage shows Delivered under your last text, then Read once the reply starts
+        if (receipts && kind === 'out') { const r = document.createElement('div'); r.className = 'receipt'; r.textContent = 'Delivered'; box.appendChild(r); }
+      }
+      await sleep(4600);
+      box.classList.add('fade'); await sleep(500); box.classList.remove('fade');
+    }
+  })();
+}
+
 const hScript = [
   ['in',  'ground is connected to power (rows 1 \u2192 5 \u2192 6 \u2192 2). do not plug in power: remove the wire between rows 5 and 6.', 600],
   ['out', 'is my circuit safe?', 2600],
@@ -501,21 +570,7 @@ const hScript = [
   ['out', 'check again', 2400],
   ['in',  'all clear. wiring matches the plan. safe to power on.', 1400],
 ];
-const hBubble = (kind, text) => { const b = document.createElement('div'); b.className = 'bub ' + kind; if (text) b.textContent = text; hThread.appendChild(b); return b; };
-const hTyping = () => { const b = hBubble('in typing'); b.innerHTML = '<i></i><i></i><i></i>'; return b; };
-(async function runHeroThread() {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { hScript.forEach(([k, t]) => hBubble(k, t)); return; }
-  for (;;) {
-    hThread.innerHTML = '';
-    for (const [kind, text, gap] of hScript) {
-      await hSleep(gap);
-      if (kind === 'in') { const t = hTyping(); await hSleep(950); t.remove(); }
-      hBubble(kind, text);
-    }
-    await hSleep(4600);
-    hThread.classList.add('fade'); await hSleep(500); hThread.classList.remove('fade');
-  }
-})();
+playThread(document.getElementById('heroThread'), hScript);
 
 // reveal on scroll
 const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && e.target.classList.add('in')), { threshold: .15 });
@@ -545,26 +600,18 @@ for (let i = 0; i < 16; i++) {
 }
 document.getElementById('diagPath').setAttribute('d', `M${X(0)} 82 Q${(X(0) + X(4)) / 2} 30 ${X(4)} 82 M${X(4)} 82 Q${(X(4) + X(5)) / 2} 52 ${X(5)} 82 M${X(5)} 82 Q${(X(5) + X(1)) / 2} 30 ${X(1)} 82`);
 
-// phone thread
-const thread = document.getElementById('thread');
-const msgs = [
-  ['in', 'power cut: too much current. the board is off. run a wiring check before turning it back on.'],
-  ['out', 'what happened?'],
-  ['in', 'ground is connected to power (rows 1, 5, 6, 2). do not plug in power: remove the wire between rows 5 and 6.'],
-  ['out', 'is my circuit safe?'],
-  ['in', 'not yet. add a jumper from row 7 to row 10, then check again.'],
+// the iMessage phone further down starts once it scrolls into view
+const imScript = [
+  ['in',  'power cut: too much current. the board is off. run a wiring check before turning it back on.', 400],
+  ['out', 'what happened?', 2200],
+  ['in',  'ground is connected to power (rows 1, 5, 6, 2). do not plug in power: remove the wire between rows 5 and 6.', 1300],
+  ['out', 'is my circuit safe?', 2600],
+  ['in',  'not yet. add a jumper from row 7 to row 10, then check again.', 1300],
 ];
-let started = false;
 new IntersectionObserver((es, o) => {
-  if (!es[0].isIntersecting || started) return;
-  started = true;
-  msgs.forEach(([kind, text], i) => {
-    const b = document.createElement('div');
-    b.className = 'bubble ' + kind;
-    b.style.animationDelay = (0.4 + i * 1.1) + 's';
-    b.textContent = text;
-    thread.appendChild(b);
-  });
+  if (!es[0].isIntersecting) return;
+  o.disconnect();
+  playThread(document.getElementById('thread'), imScript, true);
 }, { threshold: .4 }).observe(document.getElementById('phoneCard'));
 </script>
 </body>
