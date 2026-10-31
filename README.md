@@ -57,7 +57,7 @@ npm run bridge     # laptop <-> cloud hub (set CLOUD_URL and HUB_TOKEN)
 BOARD=serial npm run hub          # auto-detects the arduino, or set SERIAL_PORT=/dev/cu.usbmodem...
 ```
 
-flash `firmware/smart_breadboard` first. pin maps are at the top of the sketch.
+flash `firmware/smart_breadboard` first (step by step: [docs/flashing.md](docs/flashing.md)). pin maps are at the top of the sketch.
 
 ```sh
 # lckfb esp32-s3 (native usb serial)

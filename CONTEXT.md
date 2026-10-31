@@ -74,6 +74,15 @@ Power supply -> INA219 (current/voltage sensor) -> logic-level MOSFET (on/off sw
 - A small temperature sensor (thermistor or MLX90614) sits near the parts.
 - **Open question:** a relay may replace the MOSFET. See section 6.
 
+### Flashing the firmware
+Step by step guide for the teammate with the board: [`docs/flashing.md`](docs/flashing.md). Short version:
+
+```sh
+arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc firmware/smart_breadboard
+arduino-cli upload  --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc -p <port> firmware/smart_breadboard
+npm install && npm run serial      # then type PING, expect {"t":"pong"}
+```
+
 ### Board and pins (current, as wired by the team)
 LCKFB ESP32-S3 (3.3V and 5V). 5V relay for the power switch.
 
