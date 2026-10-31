@@ -37,15 +37,10 @@ export interface HubState {
   telemetry: Telemetry;
   cutReason: string | null;
   plan: CircuitPlan;
-<<<<<<< Updated upstream
-  /** name of the active project, or null in watch mode (show live links, compare to nothing) */
-  project: string | null;
   /** the notch stays open until the hold is released (demo use) */
   hold: boolean;
   /** this state was put on screen by hand for a demo, not read from the board */
   staged: boolean;
-=======
->>>>>>> Stashed changes
   updatedAt: number;
   mode: 'sim' | 'serial';
 }

@@ -238,39 +238,6 @@ document.getElementById('notch').addEventListener('mouseenter', () => window.not
 document.getElementById('notch').addEventListener('mouseleave', () => window.notchHover(false));
 
 const DEMO = params.has('demo');
-<<<<<<< Updated upstream
-const post = (path, body) => fetch(path, {
-  method: 'POST',
-  headers: { 'content-type': 'application/json', ...(KEY ? { 'x-hub-token': KEY } : {}) },
-  body: body ? JSON.stringify(body) : undefined,
-}).catch(() => {});
-const ACTIONS = {
-  demo: () => post('/api/project', { on: true }),
-  exit: () => post('/api/project', { on: false }),
-  check: () => post('/api/check'),
-  off: () => post('/api/power-off'),
-};
-$('bodyEl').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-act]');
-  if (b) ACTIONS[b.dataset.act]();
-});
-
-const linked = (links, a, b) => (links || []).some(([x, y]) => (x === a && y === b) || (x === b && y === a));
-// the project's required links, ticked off as they appear on the board
-function planChips(st) {
-  if (!st.project || !st.plan || !st.plan.links) return '';
-  return `<div class="chips"><span class="lbl">${esc(st.project)}</span>` +
-    st.plan.links.map(([a, b]) => linked(st.links, a, b) ? `<span class="ok">✓ ${a}–${b}</span>` : `<span class="miss">○ ${a}–${b}</span>`).join('') + `</div>`;
-}
-function acts(st) {
-  if (DEMO || st.hold) return '';
-  if (st.power) return `<div class="acts"><button data-act="off">power off</button></div>`;
-  if (st.project) return `<div class="acts"><button data-act="check">check again</button><button data-act="exit">exit project</button></div>`;
-  return `<div class="acts"><button class="primary" data-act="demo">demo project</button></div>`;
-}
-const EXTRA = 66;   // height of the checklist + buttons rows
-=======
->>>>>>> Stashed changes
 
 let last = '';
 // the notch on a real hub shows one thing: the live wiring, rescanned every half second
@@ -288,10 +255,6 @@ function renderLive(st) {
       closeLater();
     }
   }
-<<<<<<< Updated upstream
-  // a held notch (demo) stays open, whatever else happens, until the hold is released
-  if (st.hold) { setOpen(true); clearTimeout(timer); }
-=======
   const n = links.length;
   document.body.dataset.phase = cut ? 'cut' : st.power ? 'powered' : 'idle';
   document.body.dataset.critical = String(cut);
@@ -308,16 +271,17 @@ function renderLive(st) {
   $('notch').style.setProperty('--h', 34 + 76 + 28 + 12 + NH + 'px');
 }
 
-// the landing page plays a scripted loop of checks and faults through this one
+// the landing page loop and a staged demo fault (/api/stage) use the full fault display
 function render(st) {
-  if (!DEMO) return renderLive(st);
+  if (!DEMO && !st.staged) return renderLive(st);
   lastState = st;
   const sigNow = JSON.stringify([st.phase, st.findings]);
   if (sigNow !== stateSig) {
     stateSig = sigNow;
     setOpen(st.phase !== 'idle');   // idle means closed
   }
->>>>>>> Stashed changes
+  // a held notch (demo) stays open, whatever else happens, until the hold is released
+  if (st.hold) { setOpen(true); clearTimeout(timer); }
   const faulty = st.phase === 'fault' || st.phase === 'cut';
   const critical = st.findings.some((f) => f.severity === 'critical') || st.phase === 'cut';
   document.body.dataset.phase = st.phase;
@@ -360,10 +324,6 @@ function render(st) {
       (st.findings.length > 1 ? `<div class="fix" style="margin-top:6px">and ${st.findings.length - 1} more</div>` : '');
     h = st.findings.length > 1 ? 200 : 180;
     if (st.phase === 'cut') h = 172;
-<<<<<<< Updated upstream
-    if (!DEMO && !st.hold) h += st.project && st.phase !== 'cut' ? EXTRA : 38;
-=======
->>>>>>> Stashed changes
   } else if (st.phase === 'powered') {
     const t = st.telemetry;
     if (t.sensed === false) {

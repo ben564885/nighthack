@@ -33,12 +33,8 @@ export class Hub extends EventEmitter {
       telemetry: { mv: 0, ma: 0, tc: 0 },
       cutReason: null,
       plan,
-<<<<<<< Updated upstream
-      project: null,
       hold: false,
       staged: false,
-=======
->>>>>>> Stashed changes
       updatedAt: Date.now(),
       mode: board.mode,
     };
@@ -87,8 +83,8 @@ export class Hub extends EventEmitter {
     this.inflight = this.board
       .scan()
       .then((links) => {
-        // a command started meanwhile owns the state now
-        if (this.busy || this.state.power) return;
+        // a command or a staged demo fault started meanwhile owns the state now
+        if (this.busy || this.state.power || this.state.staged) return;
         const same = JSON.stringify(links) === JSON.stringify(this.state.links);
         if (same && this.state.headline !== SCAN_FAILED) return;
         this.applyScan(links);
@@ -103,16 +99,8 @@ export class Hub extends EventEmitter {
 
   /** a background scan only records the live links. a changed board makes the last check stale. */
   private applyScan(links: HubState['links']) {
-<<<<<<< Updated upstream
-    if (!this.state.project) {
-      const n = links.length;
-      this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links });
-      return [];
-    }
-    const findings = analyze(this.state.plan, links);
-    const ok = findings.length === 0;
-    this.set({ phase: ok ? 'pass' : 'fault', headline: ok ? 'all clear' : findings[0].message, findings, links });
-    return findings;
+    const n = links.length;
+    this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links });
   }
 
   /**
@@ -122,30 +110,13 @@ export class Hub extends EventEmitter {
    */
   stage(on: boolean) {
     if (!on) {
-      this.set({ staged: false, hold: false, project: null, phase: 'idle', headline: 'ready', findings: [], links: [], power: false });
+      this.set({ staged: false, hold: false, phase: 'idle', headline: 'ready', findings: [], links: [], power: false });
       return { ok: true, staged: false };
     }
     const links: HubState['links'] = [[1, 5], [2, 6], [5, 6], [7, 10]];
     const findings = analyze(this.state.plan, links);
-    this.set({ staged: true, hold: true, project: null, phase: 'fault', headline: findings[0].message, findings, links, power: false, cutReason: null });
+    this.set({ staged: true, hold: true, phase: 'fault', headline: findings[0].message, findings, links, power: false, cutReason: null });
     return { ok: true, staged: true, findings };
-  }
-
-  /** start the demo project (the loaded plan), or go back to watching the bare board */
-  setProject(on: boolean) {
-    return this.exclusive(async () => {
-      if (on) {
-        this.set({ project: this.state.plan.name });
-        return this.checkWiring();
-      }
-      this.set({ project: null });
-      if (!this.state.power) this.applyScan(this.state.links);
-      return { ok: true, findings: [] };
-    });
-=======
-    const n = links.length;
-    this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links });
->>>>>>> Stashed changes
   }
 
   checkWiring(): Promise<CheckResult> {
