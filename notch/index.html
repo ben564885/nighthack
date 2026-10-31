@@ -230,7 +230,7 @@ function setOpen(v) {
 }
 function closeLater() {
   clearTimeout(timer);
-  timer = setTimeout(() => { if (!hovered) setOpen(false); }, DISMISS_MS);
+  timer = setTimeout(() => { if (!hovered && !(lastState && lastState.hold)) setOpen(false); }, DISMISS_MS);
 }
 // the native app calls this from its mouse tracker
 window.notchHover = (inside) => {
@@ -240,7 +240,7 @@ window.notchHover = (inside) => {
     if (!open && lastState) setOpen(true);
   } else if (hovered) {
     hovered = false;
-    setOpen(false);
+    if (!(lastState && lastState.hold)) setOpen(false);   // a held notch never closes on its own
   }
 };
 document.getElementById('notch').addEventListener('mouseenter', () => window.notchHover(true));
@@ -271,7 +271,7 @@ function planChips(st) {
     st.plan.links.map(([a, b]) => linked(st.links, a, b) ? `<span class="ok">✓ ${a}–${b}</span>` : `<span class="miss">○ ${a}–${b}</span>`).join('') + `</div>`;
 }
 function acts(st) {
-  if (DEMO) return '';
+  if (DEMO || st.hold) return '';
   if (st.power) return `<div class="acts"><button data-act="off">power off</button></div>`;
   if (st.project) return `<div class="acts"><button data-act="check">check again</button><button data-act="exit">exit project</button></div>`;
   return `<div class="acts"><button class="primary" data-act="demo">demo project</button></div>`;
@@ -294,6 +294,8 @@ function render(st) {
       if (st.phase !== 'scanning') closeLater();
     }
   }
+  // a held notch (demo) stays open, whatever else happens, until the hold is released
+  if (st.hold) { setOpen(true); clearTimeout(timer); }
   const faulty = st.phase === 'fault' || st.phase === 'cut';
   const critical = st.findings.some((f) => f.severity === 'critical') || st.phase === 'cut';
   document.body.dataset.phase = st.phase;
@@ -302,6 +304,7 @@ function render(st) {
 
   $('title').textContent = st.phase === 'fault' ? (critical ? 'danger: do not power on' : 'wiring issue') : st.headline;
   $('meta').textContent =
+    st.staged ? 'demo' :
     st.phase === 'powered' ? (st.telemetry.sensed === false ? 'on' : `${(st.telemetry.mv / 1000).toFixed(2)} v`) :
     st.phase === 'fault' ? `${st.findings.length} issue${st.findings.length === 1 ? '' : 's'}` :
     st.phase === 'idle' && !st.project ? (st.mode === 'sim' ? 'live · sim' : 'live') :
@@ -338,7 +341,7 @@ function render(st) {
       planChips(st) + acts(st);
     h = st.findings.length > 1 ? 200 : 180;
     if (st.phase === 'cut') h = 172;
-    if (!DEMO) h += st.project && st.phase !== 'cut' ? EXTRA : 38;
+    if (!DEMO && !st.hold) h += st.project && st.phase !== 'cut' ? EXTRA : 38;
   } else if (st.phase === 'powered') {
     const t = st.telemetry;
     if (t.sensed === false) {
@@ -388,7 +391,7 @@ if (params.has('demo')) {
     [1400, { phase: 'idle', headline: 'ready', findings: [] }],
     [1700, { phase: 'scanning', headline: 'scanning', findings: [] }],
     [4200, { phase: 'fault', headline: '', findings: [
-      F('rail_short', [1, 5, 6, 2], 'critical', '5v is connected to gnd (rows 1 \u2192 5 \u2192 6 \u2192 2)', 'remove the wire between row 5 and row 6'),
+      F('rail_short', [1, 5, 6, 2], 'critical', 'ground is connected to power (rows 1 \u2192 5 \u2192 6 \u2192 2)', 'do not plug in power: remove the wire between rows 5 and 6'),
       F('missing', [7, 10], 'warn', 'row 7 and row 10 are not connected', 'add a jumper from row 7 to row 10')] }],
     [1500, { phase: 'scanning', headline: 'scanning', findings: [] }],
     [3200, { phase: 'fault', headline: '', findings: [F('missing', [7, 10], 'warn', 'row 7 and row 10 are not connected', 'add a jumper from row 7 to row 10')] }],

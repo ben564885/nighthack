@@ -34,6 +34,8 @@ export class Hub extends EventEmitter {
       cutReason: null,
       plan,
       project: null,
+      hold: false,
+      staged: false,
       updatedAt: Date.now(),
       mode: board.mode,
     };
@@ -59,6 +61,8 @@ export class Hub extends EventEmitter {
 
   /** runs a command with the background scan paused, after any scan already on the wire */
   private async exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    // any real command ends a staged demo state
+    if (this.state.staged) this.set({ staged: false, hold: false });
     this.busy++;
     try {
       await this.inflight;
@@ -76,7 +80,7 @@ export class Hub extends EventEmitter {
 
   private backgroundScan() {
     const s = this.state;
-    if (this.busy || this.inflight || s.power || s.phase === 'cut' || s.phase === 'scanning') return;
+    if (s.staged || this.busy || this.inflight || s.power || s.phase === 'cut' || s.phase === 'scanning') return;
     this.inflight = this.board
       .scan()
       .then((links) => {
@@ -105,6 +109,22 @@ export class Hub extends EventEmitter {
     const ok = findings.length === 0;
     this.set({ phase: ok ? 'pass' : 'fault', headline: ok ? 'all clear' : findings[0].message, findings, links });
     return findings;
+  }
+
+  /**
+   * put a power-to-ground fault on the notch and keep it there until released.
+   * it goes through the real analysis (same message and fix as a real scan), but it is not read
+   * from the board, so it is marked `staged` and the notch labels it "demo". it sends no alerts.
+   */
+  stage(on: boolean) {
+    if (!on) {
+      this.set({ staged: false, hold: false, project: null, phase: 'idle', headline: 'ready', findings: [], links: [], power: false });
+      return { ok: true, staged: false };
+    }
+    const links: HubState['links'] = [[1, 5], [2, 6], [5, 6], [7, 10]];
+    const findings = analyze(this.state.plan, links);
+    this.set({ staged: true, hold: true, project: null, phase: 'fault', headline: findings[0].message, findings, links, power: false, cutReason: null });
+    return { ok: true, staged: true, findings };
   }
 
   /** start the demo project (the loaded plan), or go back to watching the bare board */

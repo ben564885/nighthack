@@ -39,6 +39,10 @@ export interface HubState {
   plan: CircuitPlan;
   /** name of the active project, or null in watch mode (show live links, compare to nothing) */
   project: string | null;
+  /** the notch stays open until the hold is released (demo use) */
+  hold: boolean;
+  /** this state was put on screen by hand for a demo, not read from the board */
+  staged: boolean;
   updatedAt: number;
   mode: 'sim' | 'serial';
 }

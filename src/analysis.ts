@@ -69,10 +69,10 @@ export function analyze(plan: CircuitPlan, scanned: Link[]): Finding[] {
       kind: 'rail_short',
       rows: route,
       severity: 'critical',
-      message: `5v is connected to gnd (rows ${route.join(' → ')})`,
+      message: `ground is connected to power (rows ${route.join(' → ')})`,
       fix: culprit
-        ? `remove the wire between row ${culprit[0]} and row ${culprit[1]}`
-        : `check every wire between row ${vcc} and row ${gnd}`,
+        ? `do not plug in power: remove the wire between rows ${culprit[0]} and ${culprit[1]}`
+        : `do not plug in power: check every wire between row ${vcc} and row ${gnd}`,
     });
   }
 
