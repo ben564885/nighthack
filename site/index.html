@@ -88,7 +88,9 @@ em, .ital { font-style: normal; color: var(--accent); }
 .mac { position: relative; border-radius: 22px 22px 8px 8px; background: #17181c; padding: 12px 12px 0; box-shadow: var(--shadow-card); }
 .mac::after { content: ""; display: block; height: 14px; margin: 12px -12px 0; background: linear-gradient(#d9d8d3, #c3c2bc); border-radius: 0 0 14px 14px; }
 .screen { position: relative; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; background: #1d2330 url("/assets/dusk.png") center bottom / cover; image-rendering: pixelated; }
-.screen iframe { position: absolute; left: 0; top: 0; width: 1470px; height: 918px; border: 0; background: transparent; transform-origin: 0 0; }
+/* the demo is watch-only. without pointer-events: none, a wheel over it goes to the iframe and chains to a native page scroll
+   that lenis is still easing against, so scrolling back up over the screen jitters */
+.screen iframe { position: absolute; left: 0; top: 0; width: 1470px; height: 918px; border: 0; background: transparent; transform-origin: 0 0; pointer-events: none; }
 .menubar { position: absolute; inset: 0 0 auto 0; height: 4.2%; min-height: 14px; background: rgba(0,0,0,.25); backdrop-filter: blur(8px); display: flex; align-items: center; gap: 14px; padding: 0 14px; font-size: 10px; color: rgba(255,255,255,.8); }
 .menubar b { font-weight: 700; }
 .bench { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); width: min(72%, 30rem); }
