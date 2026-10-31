@@ -111,6 +111,10 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/html' });
       return res.end(readFileSync(new URL('../site/index.html', import.meta.url)));
     }
+    if (req.method === 'GET' && url.pathname === '/favicon.ico') {
+      res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'public, max-age=86400' });
+      return res.end(readFileSync(new URL('../site/assets/favicon-64.png', import.meta.url)));
+    }
     if (req.method === 'GET' && url.pathname === '/notch') {
       res.writeHead(200, { 'content-type': 'text/html' });
       return res.end(notchHtml());

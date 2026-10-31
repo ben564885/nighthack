@@ -5,9 +5,12 @@
 <title>Smart Breadboard</title>
 <meta name="description" content="A breadboard that checks your wiring before power-on, cuts power the moment something goes wrong, and tells you on your Mac and your phone.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/favicon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="theme-color" content="#fbfaf7">
 <style>
-@font-face { font-family: "Instrument Serif"; src: url("/assets/instrument-serif-regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Instrument Serif"; src: url("/assets/instrument-serif-italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Figtree"; src: url("/assets/figtree.woff2") format("woff2"); font-weight: 400 900; font-style: normal; font-display: swap; }
 
 :root {
   --bg: #fbfaf7;
@@ -23,8 +26,8 @@
   --ink: #0d0e11;
   --ink-2: #101114;
   --ink-text: #d8d9dc;
-  --font-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-display: "Figtree", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-sans: "Figtree", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --pad: clamp(1.25rem, 4vw, 2rem);
   --shadow-pill: 0 2px 20px -6px rgba(0, 0, 0, 0.18);
@@ -35,24 +38,47 @@ html { scroll-behavior: auto; }
 html.lenis, html.lenis body { height: auto; }
 .lenis:not(.lenis-autoToggle).lenis-stopped { overflow: clip; }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
-h1, h2, h3 { font-family: var(--font-display); font-weight: 400; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 800; text-wrap: balance; margin: 0; letter-spacing: -0.03em; }
 p { margin: 0; }
 a { color: inherit; }
-em, .ital { font-style: italic; color: var(--accent); }
+em, .ital { font-style: normal; color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 .wrap { width: 100%; max-width: 72rem; margin-inline: auto; padding-inline: var(--pad); }
 .wrap-narrow { max-width: 56rem; }
 .eyebrow { font-family: var(--font-mono); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 1rem; }
 
-/* ---------- nav ---------- */
-.nav { position: fixed; inset-inline: 0; top: 0; z-index: 50; display: flex; justify-content: center; padding: 1rem; pointer-events: none; }
-.nav-pill { pointer-events: auto; display: flex; align-items: center; gap: .25rem; padding: .375rem .5rem; border: 1px solid rgba(0,0,0,.06); border-radius: 999px; background: rgba(255,255,255,.72); box-shadow: var(--shadow-pill); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.brand { display: flex; align-items: center; gap: .5rem; font-family: var(--font-display); font-size: 1.25rem; padding: 0 .75rem 0 .5rem; text-decoration: none; }
-.brand i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.nav-links { display: flex; gap: .125rem; }
-.nav-links a { text-decoration: none; font-size: .875rem; color: var(--muted); padding: .4rem .75rem; border-radius: 999px; transition: background .2s, color .2s; }
-.nav-links a:hover { background: var(--surface-2); color: var(--text); }
-@media (max-width: 640px) { .nav-links { display: none; } }
+/* ---------- header: same bar as buzzle ----------
+   transparent and floating, the mark alone on the left, the links as one centred pill,
+   one rounded button on the right. a frosted wash fades in over the first 48px of scroll. */
+.site-header { position: fixed; inset: 0 0 auto 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: .75rem; height: 4rem; padding: 0 1.25rem; background: transparent; }
+@media (min-width: 1024px) { .site-header { padding: 0 2.5rem; } }
+.site-header.scrolled { background: rgba(251,250,247,.88); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+@supports (animation-timeline: scroll()) {
+  .site-header, .site-header.scrolled { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none;
+    animation: header-frost linear both; animation-timeline: scroll(root); animation-range: 0 48px; }
+  @keyframes header-frost {
+    from { background: rgba(251,250,247,0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+    to   { background: rgba(251,250,247,.88); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  }
+}
+.site-brand, .site-pill, .site-cta { animation: hdr-in .6s cubic-bezier(.2,.7,.2,1) both; }
+.site-pill { animation-name: hdr-fade; animation-delay: .08s; }
+.site-cta { animation-delay: .16s; }
+@keyframes hdr-in { from { opacity: 0; translate: 0 -8px; } }
+@keyframes hdr-fade { from { opacity: 0; } }
+.site-brand { display: inline-flex; flex: none; }
+.site-brand img { display: block; width: 36px; height: 36px; border-radius: 9px; transition: transform .25s cubic-bezier(.2,.7,.2,1); }
+.site-brand:hover img { transform: scale(1.07) rotate(-4deg); }
+.site-pill { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; border: 2px solid rgba(20,20,42,.08); background: rgba(255,255,255,.66); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+@media (min-width: 640px) { .site-pill { position: absolute; left: 50%; transform: translateX(-50%); } }
+@media (max-width: 639px) { .site-pill { display: none; } }
+.site-link { display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 999px; font-size: .875rem; font-weight: 700; color: #111; text-decoration: none; transition: background .2s; }
+@media (min-width: 960px) { .site-link { padding: 0 16px; } }
+.site-link:hover { background: #f1f0ec; }
+.site-cta { display: inline-flex; align-items: center; height: 40px; padding: 0 18px; border-radius: 999px; background: var(--text); color: #fff; font-size: .875rem; font-weight: 700; text-decoration: none; flex: none; transition: transform .15s, background .2s; }
+.site-cta:hover { background: #2a2c33; transform: translateY(-1px); }
+.site-cta:active { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) { .site-brand, .site-pill, .site-cta { animation: none; } }
 
 /* ---------- hero ---------- */
 .hero .chips { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.75rem; }
@@ -79,7 +105,7 @@ em, .ital { font-style: italic; color: var(--accent); }
 @media (max-width: 60rem) { .hero-veil { background: linear-gradient(to bottom, #fbfaf7cc 0%, #fbfaf7e6 45%, var(--bg) 100%); } }
 .hero-grid { width: 100%; max-width: 72rem; margin-inline: auto; display: grid; gap: 3rem; align-items: center; }
 @media (min-width: 62rem) { .hero-grid { grid-template-columns: 1.02fr 1fr; gap: 4rem; } }
-.hero h1 { font-size: clamp(2.75rem, 6.2vw, 4.4rem); line-height: 1.04; max-width: 13ch; margin: 0; }
+.hero h1 { font-size: clamp(2.4rem, 5.2vw, 3.9rem); line-height: 1.05; max-width: 14ch; margin: 0; }
 .hero .sub { margin: 1.5rem 0 0; max-width: 34rem; color: rgba(22,23,26,.72); font-size: 1.0625rem; }
 .hero .chips { justify-content: flex-start; }
 .hero .cta-row { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 2rem; }
@@ -107,14 +133,15 @@ em, .ital { font-style: italic; color: var(--accent); }
 
 /* ---------- sections ---------- */
 section { padding: 6rem 0; }
-section h2 { font-size: clamp(2.1rem, 4.6vw, 3.4rem); line-height: 1.08; max-width: 20ch; }
+section h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); line-height: 1.1; max-width: 22ch; }
+section { scroll-margin-top: 3rem; }
 section .lead { margin-top: 1.25rem; max-width: 40rem; color: var(--muted); font-size: 1.1rem; }
 .panel { background: var(--surface-2); }
 .grid3 { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin-top: 3rem; }
 .grid2 { display: grid; gap: 1rem; grid-template-columns: repeat(2, 1fr); margin-top: 3rem; }
 @media (max-width: 800px) { .grid3, .grid2 { grid-template-columns: 1fr; } }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 1.6rem; }
-.card h3 { font-size: 1.7rem; margin-bottom: .5rem; }
+.card h3 { font-size: 1.3rem; margin-bottom: .5rem; letter-spacing: -0.02em; }
 .card p { color: var(--muted); font-size: .98rem; }
 .num { font-family: var(--font-mono); font-size: .75rem; color: var(--accent); margin-bottom: .9rem; display: block; }
 
@@ -169,18 +196,16 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 </head>
 <body>
 
-<header class="nav">
-  <div class="nav-pill">
-    <a class="brand" href="#top"><i></i>Smart Breadboard</a>
-    <nav class="nav-links">
-      <a href="#demo">Live demo</a>
-      <a href="#problem">The problem</a>
-      <a href="#how">How it works</a>
-      <a href="#safety">Safety</a>
-      <a href="#stack">Hardware</a>
-      <a href="#phone">Your phone</a>
-    </nav>
-  </div>
+<header class="site-header" id="siteHeader">
+  <a class="site-brand" href="#top" aria-label="Smart Breadboard, back to top"><img src="/assets/favicon-64.png" alt="" width="36" height="36"></a>
+  <nav class="site-pill" aria-label="Site">
+    <a class="site-link" href="#problem">The problem</a>
+    <a class="site-link" href="#how">How it works</a>
+    <a class="site-link" href="#safety">Safety</a>
+    <a class="site-link" href="#stack">Hardware</a>
+    <a class="site-link" href="#phone">Your phone</a>
+  </nav>
+  <a class="site-cta" href="#demo">Live demo</a>
 </header>
 
 <main id="top">
@@ -190,8 +215,8 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
       <div>
         <p class="eyebrow">Night Hack · Founders, Inc.</p>
         <h1>One wrong wire, <span class="ital">caught before the smoke</span>.</h1>
-        <p class="sub">Smart Breadboard lets an AI see your circuit. It finds wiring mistakes before power-on, and cuts the power by itself the moment something goes wrong. It tells you on your Mac and on your phone.</p>
-        <div class="chips"><span class="chip">scan with power off</span><span class="chip">cutoff without a laptop</span><span class="chip">claude via mcp</span><span class="chip">imessage alerts</span></div>
+                <p class="sub">Smart Breadboard lets an AI see your circuit. It finds wiring mistakes before power-on, keeps the power off until the wiring is right, and tells you on your Mac and on your phone.</p>
+                <div class="chips"><span class="chip">scan with power off</span><span class="chip">power stays off until the check passes</span><span class="chip">claude via mcp</span><span class="chip">imessage agent</span></div>
         <div class="cta-row"><a class="btn" href="#demo">Watch it catch a short</a><a class="btn ghost" href="#safety">How it stays safe</a></div>
       </div>
       <div class="peek" aria-label="live notch demo">
@@ -219,7 +244,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
           </svg>
         </div>
       </div>
-      <p class="caption">live loop: build, scan, catch the short, fix it, power on, overload, cut</p>
+      <p class="caption">simulated loop, no hardware: build, scan, catch the short, fix it, power on, overload, cut</p>
     </div>
   </div>
 </section>
@@ -258,7 +283,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
     <div class="grid3">
       <div class="card"><span class="num">STEP 1</span><h3>Scan</h3><p>The Arduino maps which rows touch. The scan only runs while the power is off, so the test voltage never meets a live circuit.</p></div>
       <div class="card"><span class="num">STEP 2</span><h3>Compare</h3><p>The map is checked against the circuit plan. Rails touching, stray links and missing jumpers each get a plain fix: "remove the wire between row 5 and row 6".</p></div>
-      <div class="card"><span class="num">STEP 3</span><h3>Power</h3><p>Claude calls <code>power_on</code>. The board refuses if the check fails. If it passes, power flows through a current sensor and a switch.</p></div>
+            <div class="card"><span class="num">STEP 3</span><h3>Power</h3><p>Claude calls <code>power_on</code>. It refuses if the check finds a fault. If the check passes, the relay closes and power flows.</p></div>
     </div>
   </div>
 </section>
@@ -266,12 +291,12 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 <section id="safety" class="dark">
   <div class="wrap wrap-narrow">
     <p class="eyebrow">Safety</p>
-    <h2>The board decides. <span class="ital">The AI never does.</span></h2>
-    <p class="lead">The AI helps you build. It is never in the safety path. A bad answer, a slow network or a closed laptop cannot keep power on.</p>
+        <h2>The check decides. <span class="ital">Not a guess.</span></h2>
+        <p class="lead">The wiring check is plain code that compares a scan with the circuit plan. The AI reads the result and explains it. It does not decide whether power is allowed.</p>
     <div style="margin-top:3rem">
-      <div class="rule"><b>01</b><p><strong>The Arduino cuts power by itself.</strong> It reads current and temperature all the time. Over the limit, it opens the switch. No laptop, no network.</p></div>
-      <div class="rule"><b>02</b><p><strong>Power starts off, always.</strong> After a reset or a crash, the switch is open before any other code runs.</p></div>
-      <div class="rule"><b>03</b><p><strong>No scan while live.</strong> The multiplexers are disabled before power-on, so the scan layer cannot disturb a running circuit.</p></div>
+            <div class="rule"><b>01</b><p><strong>The check comes first.</strong> <code>power_on</code> runs a scan and refuses to switch power on if it finds a short, a stray link or a missing wire.</p></div>
+            <div class="rule"><b>02</b><p><strong>Power starts off.</strong> After a reset, the firmware sets the relay to off before any other code runs.</p></div>
+            <div class="rule"><b>03</b><p><strong>No scan while live.</strong> The multiplexers are disabled before power-on, and the board refuses to scan while power is on.</p></div>
       <div class="rule"><b>04</b><p><strong>No remote power-on.</strong> You can text "cut the power" from anywhere. You cannot text it back on. That takes you, at the bench, after a clean check.</p></div>
     </div>
   </div>
@@ -284,12 +309,9 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
     <div class="stack">
       <div><b>Breadboard</b><span>16 rows wired underneath to header pins. This is the watched build area.</span></div>
       <div><b>2 × CD74HC4067</b><span>16-channel multiplexers. One drives a test voltage, one senses every other row.</span></div>
-      <div><b>INA219</b><span>Measures voltage and current on the power path.</span></div>
-      <div><b>Power switch</b><span>A logic-level MOSFET or a relay. The firmware changes in two lines.</span></div>
-      <div><b>Temperature</b><span>A thermistor next to the parts.</span></div>
-      <div><b>Arduino</b><span>Runs the scan, the switch and the cutoff.</span></div>
-      <div><b>OLED</b><span>Shows PASS, SHORT, or power cut on the bench.</span></div>
-      <div><b>Limit</b><span>5 V or less, set by the multiplexer chips.</span></div>
+      <div><b>ESP32-S3</b><span>Runs the scan and the relay. Talks to the laptop over plain USB serial.</span></div>
+      <div><b>5 V relay</b><span>The power switch. It closes only after the check passes.</span></div>
+      <div><b>Scan level</b><span>3.3 V test voltage, with the power off.</span></div>
     </div>
   </div>
 </section>
@@ -301,7 +323,7 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
     <div class="grid3">
       <div class="card"><span class="num">MAC</span><h3>The notch</h3><p>A small native app sits on the real notch. It stays invisible until something needs you, then grows downward with the fault and the fix.</p></div>
       <div class="card"><span class="num">CLAUDE</span><h3>MCP tools</h3><p><code>check_wiring</code>, <code>power_on</code>, <code>power_off</code>, <code>get_status</code>. Claude can look at your real board before it says "now connect the LED".</p></div>
-      <div class="card"><span class="num">PHONE</span><h3>iMessage</h3><p>A fault texts you. Reply "is my circuit safe?" or "cut the power". You walked away from the bench. The board did not.</p></div>
+      <div class="card"><span class="num">PHONE</span><h3>iMessage</h3><p>Text it "is my circuit safe?" or "cut the power". It cannot turn power on: that takes you, at the bench, after a clean check.</p></div>
     </div>
   </div>
 </section>
@@ -309,11 +331,12 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 <section id="phone">
   <div class="wrap">
     <p class="eyebrow">Away from the bench</p>
-    <h2>It texts you <span class="ital">before it matters</span>.</h2>
+    <h2>Ask it from <span class="ital">anywhere</span>.</h2>
     <div class="phone reveal" id="phoneCard">
       <div class="who">Smart Breadboard</div>
       <div class="thread" id="thread"></div>
     </div>
+    <p class="caption" style="text-align:center">example conversation</p>
   </div>
 </section>
 
@@ -342,6 +365,11 @@ fit(); addEventListener('resize', fit);
 const peekFrame = document.getElementById('peekFrame');
 const fitPeek = () => { const w = peekFrame.parentElement.clientWidth; const k = Math.max(1, w / 560); peekFrame.style.transform = `translateX(-50%) scale(${k})`; };
 fitPeek(); addEventListener('resize', fitPeek);
+
+// header frost: css scroll timelines do it where supported, this class is the fallback
+const siteHeader = document.getElementById('siteHeader');
+const onScrollHeader = () => siteHeader.classList.toggle('scrolled', window.scrollY > 48);
+addEventListener('scroll', onScrollHeader, { passive: true }); onScrollHeader();
 
 // reveal on scroll
 const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && e.target.classList.add('in')), { threshold: .15 });

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>notch</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <style>
   :root {
     --ink: #fff;
@@ -287,7 +288,7 @@ function render(st) {
         <div><small>voltage</small><span>${(t.mv / 1000).toFixed(2)}<i>v</i></span></div>
         <div><small>current</small><span>${Math.round(t.ma)}<i>ma</i></span></div>
         <div><small>temp</small><span>${Math.round(t.tc)}<i>c</i></span></div></div>
-        <div class="fix" style="margin-top:10px">watching. power cuts by itself if anything goes wrong.</div>`;
+        <div class="fix" style="margin-top:10px">watching voltage, current and temperature.</div>`;
       h = 150;
     }
   }
