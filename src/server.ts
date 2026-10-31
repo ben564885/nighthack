@@ -48,22 +48,21 @@ const cooledDown = (k: string, ms = 20_000) => {
   return true;
 };
 
+// every popup of the notch also sends a text (see Hub.scheduleNotice). the text is the same words.
+// NOTICE_TEXTS=0 in the server's .env turns the texts off (the notch is unaffected).
+hub.on('notice', (text: string) => {
+  if (process.env.NOTICE_TEXTS === '0') return;
+  photon.send(text).catch((e) => console.log('[photon] send failed:', e.message));
+});
+
+// a serious fault also tries a phone call. skipped unless the voice keys are set.
 hub.on('alert', async (a: { kind: 'fault'; findings: Finding[] } | { kind: 'cut'; reason: string }) => {
   const critical = a.kind === 'cut' || a.findings.some((f) => f.severity === 'critical');
-  const text =
-    a.kind === 'cut'
-      ? `power cut: ${a.reason}. the board is off. run a wiring check before turning it back on.`
-      : a.findings
-          .slice(0, 2)
-          .map((f) => `${f.message}. ${f.fix}.`)
-          .join(' ');
-  if (!cooledDown(`text:${a.kind}`)) return;
-  await photon.send(text).catch((e) => console.log('[photon] send failed:', e.message));
-  if (critical && cooledDown('call', 60_000)) {
-    const spoken = a.kind === 'cut' ? `your breadboard cut the power. ${a.reason}.` : `your breadboard has a dangerous wiring fault. ${text}`;
-    await placeCall(spoken).catch((e) => console.log('[voice]', e.message));
-  }
+  if (!critical || !cooledDown('call', 60_000)) return;
+  const what = a.kind === 'cut' ? `your breadboard cut the power. ${a.reason}.` : `your breadboard has a dangerous wiring fault. ${a.findings[0]?.message}. ${a.findings[0]?.fix}.`;
+  await placeCall(what).catch((e) => console.log('[voice]', e.message));
 });
+
 
 photon.start(makeAgent(hub));
 

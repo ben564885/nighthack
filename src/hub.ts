@@ -1,9 +1,12 @@
 import { EventEmitter } from 'node:events';
 import { analyze } from './analysis.js';
 import { testWiring } from './wiring-test.js';
+import { noticeText } from './notice.js';
 import type { Board, CircuitPlan, Finding, HubState } from './types.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const NOTICE_PAUSE_MS = 1200;
+const NOTICE_GAP_MS = 4000;
 const SCAN_FAILED = 'scan failed';
 
 export interface CheckResult {
@@ -59,6 +62,39 @@ export class Hub extends EventEmitter {
   private set(patch: Partial<HubState>) {
     this.state = { ...this.state, ...patch, mode: this.board.mode, updatedAt: Date.now() };
     this.emit('state', this.state);
+    this.scheduleNotice();
+  }
+
+  // ---- one text for every popup of the notch -------------------------------------------------
+  // the notch opens when the phase, findings, links, project or test change. a text goes out for
+  // each of those too: joined over a short pause, and never closer together than NOTICE_GAP_MS.
+  private noticeSig = '';
+  private noticeTimer?: NodeJS.Timeout;
+  private lastNotice = '';
+  private lastNoticeAt = 0;
+  private noticed = false;
+
+  private scheduleNotice() {
+    const s = this.state;
+    if (s.phase === 'scanning') return; // the notch is still scanning. wait for the result
+    const sig = JSON.stringify([s.phase, s.findings, s.links, s.project, s.power, s.staged, s.test && s.test.steps, s.test && s.test.ok]);
+    if (sig === this.noticeSig) return;
+    this.noticeSig = sig;
+    clearTimeout(this.noticeTimer);
+    const wait = Math.max(NOTICE_PAUSE_MS, this.lastNoticeAt + NOTICE_GAP_MS - Date.now());
+    this.noticeTimer = setTimeout(() => this.sendNotice(), wait);
+  }
+
+  private sendNotice() {
+    const s = this.state;
+    // a quiet start (nothing wired, no project) keeps the notch closed, so no text either
+    if (!this.noticed && s.phase === 'idle' && !s.links.length && !s.project && !s.test) return;
+    const text = noticeText(s);
+    if (!text || text === this.lastNotice) return;
+    this.noticed = true;
+    this.lastNotice = text;
+    this.lastNoticeAt = Date.now();
+    this.emit('notice', text);
   }
 
   /** runs a command with the background scan paused, after any scan already on the wire */
