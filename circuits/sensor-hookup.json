@@ -1,0 +1,7 @@
+{
+  "name": "sensor hookup",
+  "description": "a sensor powered from 5v with its output going to an led resistor",
+  "rails": { "vcc": 1, "gnd": 2 },
+  "links": [[1, 5], [2, 6], [7, 10]],
+  "maxMa": 400
+}

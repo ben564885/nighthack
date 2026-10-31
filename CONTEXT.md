@@ -29,7 +29,7 @@ Single source of truth for the team. Update it as decisions change.
 
 ### Prizes
 - Top 3: cash, Anthropic API credits ($5k / $3k / $2k), 3 months Firecrawl Growth, up to $500 HeyPCB fabrication per team. 1st also gets a Founders, Inc. guest pass.
-- Photon award ($1,000): best AI agent people can text on iMessage. Needs a reachable iMessage number or handle. SMS-only does not qualify. (Possible side angle for us; not in the current plan.)
+- Photon award ($1,000): best AI agent people can text on iMessage. Needs a reachable iMessage number or handle. SMS-only does not qualify. (In our plan: see section 3c.)
 - Builder perks after check-in: Anthropic $50 credits (200 redemptions), Firecrawl 10k credits, Photon $100, HeyPCB one month Starter, Bolt, Mercury offers. Redemption details come via Luma after check-in.
 - Partners: Firecrawl, Bolt, Convex, Anthropic, Photon, Mercury, HeyPCB, Nebula.
 
@@ -113,6 +113,63 @@ The demo is 90 seconds with no slides. A judge cannot see a short circuit on a b
 ### Open question
 - [ ] Native macOS window, or a web page styled as a notch? A web page is faster. A native window looks better on the demo laptop.
 
+## 3c. Photon iMessage Agent (phone alerts, two-way)
+
+The Mac shows the Notch. A Photon iMessage agent also sends a text to the user. The user can text back.
+
+### Behavior
+- **Alert:** On a fault or a power cut, the agent texts the user with the problem and the fix (same content as the Notch).
+- **Two-way commands:** The user texts the agent. Examples: "Is my circuit safe?" calls `check_wiring`. "Cut the power" calls a power-off tool. "What is the status?" returns the last state.
+- **Phone call (stretch):** For a very serious fault, call the user. Photon is built for iMessage. We do not know if it supports calls. Check at kickoff. If it is not simple, skip it and describe it only in the pitch.
+
+### Why
+- The user is not always at the screen. If a fault happens while they are away, the text reaches them.
+- The Photon prize ($1,000) is for an agent people can text. An alert-only message might not qualify, so the agent must accept replies.
+- The prize needs a reachable iMessage number or handle in the submission. Plan for this early.
+
+### Rules
+- The Arduino cuts power on its own. The Notch, the text and the call are alerts only. No safety function depends on them.
+- The demo must not depend on Wi-Fi or on iMessage delay. The Notch is the main display. The text is an extra.
+- A remote "power on" command is a risk. Allow remote "cut power" and status only. Power on needs the local user to start it (decision to confirm).
+
+### Priority order
+1. Core: scan, safety cutoff, MCP server.
+2. The Notch (basic version).
+3. Photon iMessage alert, then two-way commands.
+4. Phone call, only if time remains.
+5. Notch animation, last.
+
+### Open questions
+- [ ] Does Photon support calls? Ask at kickoff.
+- [ ] Which iMessage number or handle do we give in the submission?
+- [ ] Who builds the Photon agent?
+
+## 3d. Build Status (software)
+
+Built and tested in simulation. See `README.md` for how to run.
+
+| Part | State |
+|---|---|
+| Analysis (shorts, rail short, missing links) | done, tested |
+| Hub + sim board + demo panel | done, tested |
+| Notch UI (web page, arcs, live readings) | done, checked in browser |
+| MCP server (`check_wiring`, `power_on`, `power_off`, `get_status`) | done, tested |
+| Text agent (Claude, tools, instant "cut power") | done, tested with sim |
+| Firmware | compiles for Uno. **Not tested on hardware.** |
+| Serial board driver | written, **not tested on hardware** |
+| Photon iMessage | code written. **Needs `PHOTON_PROJECT_ID`.** Not tested with the real API. |
+| Phone call | code written for ElevenLabs over Photon SIP. **Not tested.** Needs a dedicated Photon number and ElevenLabs keys. |
+
+### Photon facts (from the 2.0 beta docs)
+- Our key (`pho_sk_...`) is bound to one project. It needs the project ID (`pho_prj_...`).
+- A shared line cannot send the first message. The owner must text the agent first.
+- Calls need a dedicated number, not a shared line. Photon gives the phone line (SIP). The voice comes from a voice agent (ElevenLabs is the documented path).
+- Photon 2.0 iMessage supports text and images only.
+
+### Safety design
+- The Arduino guards power by itself (current and temperature). The hub, Notch, texts and calls are alerts only.
+- Remote power on is not allowed by text. Cut power and status are allowed.
+
 ## 4. Parts and Prep
 
 - Philip likely has all required parts. Nobody needs to buy components.
@@ -126,8 +183,9 @@ The demo is 90 seconds with no slides. A judge cannot see a short circuit on a b
 3. Write the MCP server: `check_wiring`, `power_on` (and likely a status tool).
 4. Prepare and coordinate the live demo (90 seconds, no slides).
 5. Build the Notch (see section 3b). Build the basic version first. Add animation last.
-6. Build the simulation fallback.
-7. Submission by 9:00 PM.
+6. Build the Photon iMessage agent (see section 3c).
+7. Build the simulation fallback.
+8. Submission by 9:00 PM.
 
 ## 6. Open Questions
 
@@ -135,7 +193,7 @@ The demo is 90 seconds with no slides. A judge cannot see a short circuit on a b
 - [ ] **Who owns what?** Assign hardware, firmware, MCP/AI layer, Notch, demo and submission.
 - [ ] **Tracks and judging criteria.** Learn at kickoff.
 - [ ] **Team approval.** Confirm all four teammates are approved on Luma.
-- [ ] **Photon side prize?** Only if an iMessage interface is cheap to add. Probably out of scope.
+- [ ] **Photon prize.** Now in scope as a two-way iMessage agent (section 3c).
 
 ## 7. Action Items from the Meeting
 

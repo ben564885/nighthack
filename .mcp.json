@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "smart-breadboard": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp.ts"]
+    }
+  }
+}

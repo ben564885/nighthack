@@ -1,0 +1,254 @@
+// smart breadboard firmware (arduino uno / nano, 5v)
+//
+// what it does
+//   1. SCAN : with power off, finds which of the 16 watched rows are connected.
+//   2. ON / OFF : switches the power path (relay or logic-level mosfet).
+//   3. guard : with power on, cuts power by itself on overcurrent or overtemperature.
+//      no laptop needed for this part.
+//
+// serial: 115200 baud, one command per line, one json object per reply line.
+//   PING            -> {"t":"pong"}
+//   SCAN            -> {"t":"scan","links":[[1,5],[2,6]]}     rows are 1..16
+//   ON              -> {"t":"ok"}   (the host checks the wiring first)
+//   OFF             -> {"t":"ok"}
+//   STATUS          -> {"t":"status","power":true,"mv":4980,"ma":56,"tc":26.5}
+//   SET MAXMA 400   -> {"t":"ok"}
+//   (unsolicited)   -> {"t":"cut","reason":"overcurrent"|"overtemperature"}
+//
+// wiring
+//   drive mux  CD74HC4067 : S0-S3 = D2 D3 D4 D5, SIG = D6 (through 1k), EN = D7 (active low)
+//   sense mux  CD74HC4067 : S0-S3 = D8 D9 D10 D11, SIG = A0, EN = D12 (active low)
+//   both mux channel 0..15 -> the same 16 breadboard rows (row 1 = channel 0)
+//   A0 also needs a 100k resistor to gnd, so an unconnected row reads low.
+//   power switch control  : A3
+//   thermistor (10k ntc + 10k divider) : A1
+//   ina219 and ssd1306 oled : i2c (A4 sda, A5 scl), addresses 0x40 and 0x3C
+//
+// libraries: Adafruit INA219, Adafruit SSD1306, Adafruit GFX
+
+#include <Wire.h>
+#include <Adafruit_INA219.h>
+#include <Adafruit_SSD1306.h>
+
+// ---- relay or mosfet? change these two lines only ---------------------------
+// mosfet: HIGH turns power on, no settle delay.
+// relay module: many are active low (LOW turns power on), allow ~20 ms to settle.
+#define POWER_ACTIVE_LEVEL HIGH
+#define POWER_SETTLE_MS 2
+// -----------------------------------------------------------------------------
+
+const uint8_t DRIVE_S[4] = {2, 3, 4, 5};
+const uint8_t DRIVE_SIG = 6;
+const uint8_t DRIVE_EN = 7;
+const uint8_t SENSE_S[4] = {8, 9, 10, 11};
+const uint8_t SENSE_EN = 12;
+const uint8_t SENSE_SIG = A0;
+const uint8_t THERM_PIN = A1;
+const uint8_t POWER_PIN = A3;
+
+const uint8_t ROWS = 16;
+const int LINK_THRESHOLD = 512;  // adc counts. connected rows read near 1023.
+const float MAX_TEMP_C = 80.0;
+
+float maxMa = 400.0;
+bool powerOn = false;
+uint8_t overCount = 0;
+unsigned long lastGuard = 0;
+
+Adafruit_INA219 ina;
+Adafruit_SSD1306 oled(128, 64, &Wire, -1);
+bool haveOled = false;
+bool haveIna = false;
+
+// ---- helpers ----------------------------------------------------------------
+void selectChannel(const uint8_t pins[4], uint8_t ch) {
+  for (uint8_t i = 0; i < 4; i++) digitalWrite(pins[i], (ch >> i) & 1);
+}
+
+void muxesOff() {
+  digitalWrite(DRIVE_EN, HIGH);
+  digitalWrite(SENSE_EN, HIGH);
+  pinMode(DRIVE_SIG, INPUT);  // float the drive line so it cannot touch a live circuit
+}
+
+float readTempC() {
+  // 10k ntc, beta 3950, 10k fixed resistor to gnd
+  int raw = analogRead(THERM_PIN);
+  if (raw <= 0 || raw >= 1023) return 25.0;
+  float r = 10000.0 * (1023.0 / raw - 1.0);
+  float k = 1.0 / (log(r / 10000.0) / 3950.0 + 1.0 / 298.15);
+  return k - 273.15;
+}
+
+void show(const char* a, const char* b = "") {
+  if (!haveOled) return;
+  oled.clearDisplay();
+  oled.setTextColor(SSD1306_WHITE);
+  oled.setTextSize(2);
+  oled.setCursor(0, 8);
+  oled.println(a);
+  oled.setTextSize(1);
+  oled.setCursor(0, 44);
+  oled.println(b);
+  oled.display();
+}
+
+void setPower(bool on) {
+  digitalWrite(POWER_PIN, on ? POWER_ACTIVE_LEVEL : !POWER_ACTIVE_LEVEL);
+  delay(POWER_SETTLE_MS);
+  powerOn = on;
+  overCount = 0;
+}
+
+void cutPower(const char* reason) {
+  setPower(false);  // first, always
+  Serial.print(F("{\"t\":\"cut\",\"reason\":\""));
+  Serial.print(reason);
+  Serial.println(F("\"}"));
+  show("power cut", reason);
+}
+
+// ---- scan -------------------------------------------------------------------
+void doScan() {
+  show("scanning", "power is off");
+  digitalWrite(DRIVE_EN, LOW);
+  digitalWrite(SENSE_EN, LOW);
+  pinMode(DRIVE_SIG, OUTPUT);
+
+  bool seen[ROWS][ROWS] = {};
+  for (uint8_t i = 0; i < ROWS; i++) {
+    selectChannel(DRIVE_S, i);
+    digitalWrite(DRIVE_SIG, HIGH);
+    delayMicroseconds(60);
+    for (uint8_t j = 0; j < ROWS; j++) {
+      if (j == i) continue;
+      selectChannel(SENSE_S, j);
+      delayMicroseconds(40);
+      if (analogRead(SENSE_SIG) > LINK_THRESHOLD) seen[i][j] = true;
+    }
+    digitalWrite(DRIVE_SIG, LOW);
+  }
+  muxesOff();
+
+  Serial.print(F("{\"t\":\"scan\",\"links\":["));
+  bool first = true;
+  uint8_t count = 0;
+  for (uint8_t i = 0; i < ROWS; i++) {
+    for (uint8_t j = i + 1; j < ROWS; j++) {
+      if (seen[i][j] || seen[j][i]) {
+        if (!first) Serial.print(',');
+        Serial.print('[');
+        Serial.print(i + 1);
+        Serial.print(',');
+        Serial.print(j + 1);
+        Serial.print(']');
+        first = false;
+        count++;
+      }
+    }
+  }
+  Serial.println(F("]}"));
+  show(count ? "links found" : "no links", "");
+}
+
+// ---- status -----------------------------------------------------------------
+void sendStatus() {
+  float mv = haveIna ? ina.getBusVoltage_V() * 1000.0 : 0;
+  float ma = haveIna ? ina.getCurrent_mA() : 0;
+  Serial.print(F("{\"t\":\"status\",\"power\":"));
+  Serial.print(powerOn ? F("true") : F("false"));
+  Serial.print(F(",\"mv\":"));
+  Serial.print((int)mv);
+  Serial.print(F(",\"ma\":"));
+  Serial.print((int)ma);
+  Serial.print(F(",\"tc\":"));
+  Serial.print(readTempC(), 1);
+  Serial.println('}');
+}
+
+// ---- safety guard: runs every loop, needs no laptop ---------------------------
+void guard() {
+  if (!powerOn) return;
+  if (millis() - lastGuard < 5) return;
+  lastGuard = millis();
+
+  if (haveIna) {
+    // two reads in a row, so one noisy sample cannot cut a good build
+    if (ina.getCurrent_mA() > maxMa) {
+      if (++overCount >= 2) return cutPower("overcurrent");
+    } else {
+      overCount = 0;
+    }
+  }
+  if (readTempC() > MAX_TEMP_C) cutPower("overtemperature");
+}
+
+// ---- serial commands ---------------------------------------------------------
+void handle(String line) {
+  line.trim();
+  line.toUpperCase();
+  if (line == "PING") {
+    Serial.println(F("{\"t\":\"pong\"}"));
+  } else if (line == "SCAN") {
+    if (powerOn) Serial.println(F("{\"t\":\"err\",\"msg\":\"power is on, scan refused\"}"));
+    else doScan();
+  } else if (line == "ON") {
+    muxesOff();  // the scan layer must never touch a live circuit
+    setPower(true);
+    show("power on", "guard active");
+    Serial.println(F("{\"t\":\"ok\"}"));
+  } else if (line == "OFF") {
+    setPower(false);
+    show("power off", "");
+    Serial.println(F("{\"t\":\"ok\"}"));
+  } else if (line == "STATUS") {
+    sendStatus();
+  } else if (line.startsWith("SET MAXMA ")) {
+    float v = line.substring(10).toFloat();
+    if (v >= 20 && v <= 3000) {
+      maxMa = v;
+      Serial.println(F("{\"t\":\"ok\"}"));
+    } else {
+      Serial.println(F("{\"t\":\"err\",\"msg\":\"maxma out of range\"}"));
+    }
+  } else if (line.length()) {
+    Serial.println(F("{\"t\":\"err\",\"msg\":\"unknown command\"}"));
+  }
+}
+
+void setup() {
+  // power must be off before anything else runs, also after a reset
+  pinMode(POWER_PIN, OUTPUT);
+  digitalWrite(POWER_PIN, !POWER_ACTIVE_LEVEL);
+
+  for (uint8_t i = 0; i < 4; i++) {
+    pinMode(DRIVE_S[i], OUTPUT);
+    pinMode(SENSE_S[i], OUTPUT);
+  }
+  pinMode(DRIVE_EN, OUTPUT);
+  pinMode(SENSE_EN, OUTPUT);
+  pinMode(DRIVE_SIG, INPUT);
+  muxesOff();
+
+  Serial.begin(115200);
+  haveIna = ina.begin();
+  if (haveIna) ina.setCalibration_32V_2A();
+  haveOled = oled.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  show("ready", haveIna ? "ina219 ok" : "no ina219");
+  Serial.println(F("{\"t\":\"ready\"}"));
+}
+
+void loop() {
+  guard();
+  static String buf;
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n') {
+      handle(buf);
+      buf = "";
+    } else if (c != '\r' && buf.length() < 40) {
+      buf += c;
+    }
+    guard();
+  }
+}

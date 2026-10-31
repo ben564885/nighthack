@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notch</title>
+<style>
+  :root {
+    --ink: #fff;
+    --dim: rgba(255, 255, 255, .56);
+    --faint: rgba(255, 255, 255, .14);
+    --ok: #32d74b;
+    --warn: #ffb340;
+    --bad: #ff453a;
+    --scan: #64d2ff;
+    --accent: var(--scan);
+    --ease: cubic-bezier(.32, .72, 0, 1);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(120% 90% at 50% -10%, #20222c 0%, #0b0c10 60%, #07080a 100%);
+    color: var(--ink);
+    font: 500 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  body.overlay { background: transparent; }
+
+  /* ---------- the notch ---------- */
+  .notch {
+    position: fixed; top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 188px; height: 34px;
+    background: #000;
+    border-radius: 0 0 20px 20px;
+    transition: width .55s var(--ease), height .55s var(--ease), border-radius .55s var(--ease);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .55);
+  }
+  /* inverse corners so it melts into the top edge like the hardware notch */
+  .notch::before, .notch::after {
+    content: ""; position: absolute; top: 0; width: 16px; height: 16px; pointer-events: none;
+  }
+  .notch::before { left: -16px; background: radial-gradient(circle at 0 100%, transparent 15.5px, #000 16px); }
+  .notch::after  { right: -16px; background: radial-gradient(circle at 100% 100%, transparent 15.5px, #000 16px); }
+
+  .inner { overflow: hidden; width: 100%; height: 100%; border-radius: inherit; padding: 0 16px; }
+
+  body[data-open="true"] .notch { width: 440px; height: var(--h, 172px); border-radius: 0 0 28px 28px; }
+
+  /* header row, always visible */
+  .head { height: 34px; display: flex; align-items: center; gap: 9px; }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 12px var(--accent); flex: none;
+    transition: background .3s, box-shadow .3s;
+  }
+  .title { font-weight: 600; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .meta { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
+
+  /* phase colours */
+  body[data-phase="idle"]    { --accent: var(--dim); }
+  body[data-phase="scanning"]{ --accent: var(--scan); }
+  body[data-phase="pass"]    { --accent: var(--ok); }
+  body[data-phase="powered"] { --accent: var(--ok); }
+  body[data-phase="fault"]   { --accent: var(--warn); }
+  body[data-phase="fault"][data-critical="true"], body[data-phase="cut"] { --accent: var(--bad); }
+  body[data-phase="scanning"] .dot { animation: pulse .9s ease-in-out infinite; }
+  body[data-phase="cut"] .dot, body[data-critical="true"] .dot { animation: pulse .6s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.5); opacity: .55; } }
+
+  /* body of the open notch */
+  .body { opacity: 0; transform: translateY(-6px); transition: opacity .3s .1s, transform .45s .05s var(--ease); }
+  body[data-open="true"] .body { opacity: 1; transform: none; }
+
+  .strip { display: block; width: 100%; height: 76px; margin-top: 0; }
+  .strip .row { fill: var(--faint); transition: fill .3s; }
+  .strip .row.hot { fill: var(--accent); filter: drop-shadow(0 0 5px var(--accent)); }
+  .strip .num { fill: var(--dim); font-size: 8.5px; text-anchor: middle; font-variant-numeric: tabular-nums; }
+  .strip .num.hot { fill: var(--ink); font-weight: 700; }
+  .strip .arc { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round;
+    stroke-dasharray: 400; stroke-dashoffset: 400; animation: draw .6s var(--ease) both; }
+  .strip .arc.missing { stroke-dasharray: 4 5; animation: none; stroke-dashoffset: 0; opacity: .9; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .sweep { fill: var(--scan); opacity: 0; }
+  body[data-phase="scanning"] .sweep { animation: sweep 0.9s linear infinite; }
+  @keyframes sweep { 0% { opacity: 0; transform: translateX(0); } 15% { opacity: .35; } 85% { opacity: .35; } 100% { opacity: 0; transform: translateX(380px); } }
+
+  .msg { margin-top: 6px; font-size: 14px; font-weight: 600; }
+  .fix { margin-top: 2px; color: var(--dim); font-size: 13px; }
+  .fix b { color: var(--accent); font-weight: 600; }
+  .live { display: flex; gap: 10px; margin-top: 10px; }
+  .live div { flex: 1; background: rgba(255,255,255,.07); border-radius: 12px; padding: 8px 10px; }
+  .live small { display: block; color: var(--dim); font-size: 11px; }
+  .live span { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .live span i { font-style: normal; font-size: 11px; color: var(--dim); margin-left: 2px; }
+
+  body[data-phase="cut"] .notch, body[data-critical="true"] .notch { animation: shake .45s; }
+  @keyframes shake { 20% { transform: translateX(-50%) translateX(-5px); } 40% { transform: translateX(-50%) translateX(5px); } 60% { transform: translateX(-50%) translateX(-3px); } 80% { transform: translateX(-50%) translateX(2px); } }
+
+  /* ---------- demo panel (press d) ---------- */
+  .dev { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: none; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 92vw; }
+  body.dev .dev { display: flex; }
+  .dev button {
+    font: inherit; color: var(--ink); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer; transition: background .2s;
+  }
+  .dev button:hover { background: rgba(255,255,255,.16); }
+  .hint { position: fixed; bottom: 14px; width: 100%; text-align: center; color: rgba(255,255,255,.22); font-size: 11px; }
+  body.dev .hint { display: none; }
+</style>
+</head>
+<body data-phase="idle" data-open="false">
+
+<div class="notch" id="notch">
+  <div class="inner">
+    <div class="head">
+      <div class="dot"></div>
+      <div class="title" id="title">ready</div>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="body" id="bodyEl"></div>
+  </div>
+</div>
+
+<div class="dev">
+  <button data-go="/api/check">check wiring</button>
+  <button data-go="/api/power-on">power on</button>
+  <button data-go="/api/power-off">power off</button>
+  <button data-go="/api/sim/reset">sim: bad build</button>
+  <button data-go="/api/sim/rail-short">sim: rail short</button>
+  <button data-go="/api/sim/fix">sim: fix it</button>
+  <button data-go="/api/sim/overload">sim: overload</button>
+  <button data-go="/api/sim/overheat">sim: overheat</button>
+</div>
+<div class="hint">press d for the demo panel</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+if (params.has('overlay')) document.body.classList.add('overlay');
+if (params.has('dev')) document.body.classList.add('dev');
+addEventListener('keydown', (e) => { if (e.key === 'd') document.body.classList.toggle('dev'); });
+document.querySelectorAll('[data-go]').forEach((b) =>
+  b.addEventListener('click', () => fetch(b.dataset.go, { method: 'POST' }).catch(() => {})));
+
+const X0 = 14, STEP = (440 - 32 - 28) / 15;       // row x positions inside the strip
+const rowX = (n) => X0 + (n - 1) * STEP;
+
+function strip(state, hot, arcs) {
+  let s = `<svg class="strip" viewBox="0 0 408 76" aria-hidden="true">`;
+  s += `<rect class="sweep" x="0" y="26" width="22" height="26" rx="11"/>`;
+  for (let n = 1; n <= 16; n++) {
+    const isHot = hot.has(n);
+    s += `<rect class="row ${isHot ? 'hot' : ''}" x="${rowX(n) - 4}" y="${isHot ? 28 : 32}" width="8" height="${isHot ? 28 : 20}" rx="4"/>`;
+    s += `<text class="num ${isHot ? 'hot' : ''}" x="${rowX(n)}" y="70">${n}</text>`;
+  }
+  // one arch per hop, so a path like 1 > 5 > 6 > 2 reads as a chain
+  for (const a of arcs) {
+    for (let i = 0; i < a.rows.length - 1; i++) {
+      const x1 = rowX(a.rows[i]), x2 = rowX(a.rows[i + 1]);
+      const mid = (x1 + x2) / 2, lift = Math.max(10, Math.min(46, Math.abs(x2 - x1) * 0.55));
+      s += `<path class="arc ${a.kind === 'missing' ? 'missing' : ''}" style="animation-delay:${0.15 + i * 0.18}s" d="M${x1} 26 Q${mid} ${26 - lift} ${x2} 26"/>`;
+    }
+  }
+  return s + `</svg>`;
+}
+
+let last = '';
+function render(st) {
+  const faulty = st.phase === 'fault' || st.phase === 'cut';
+  const critical = st.findings.some((f) => f.severity === 'critical') || st.phase === 'cut';
+  const open = st.phase !== 'idle';
+  document.body.dataset.phase = st.phase;
+  document.body.dataset.critical = String(critical && faulty);
+  document.body.dataset.open = String(open);
+
+  $('title').textContent = st.phase === 'fault' ? (critical ? 'danger: do not power on' : 'wiring issue') : st.headline;
+  $('meta').textContent =
+    st.phase === 'powered' ? `${(st.telemetry.mv / 1000).toFixed(2)} v` :
+    st.phase === 'fault' ? `${st.findings.length} issue${st.findings.length === 1 ? '' : 's'}` :
+    st.mode === 'sim' ? 'sim' : '';
+
+  // rebuild the body only when the content changes, so animations are not restarted
+  const sig = JSON.stringify([st.phase, st.findings, st.phase === 'powered' ? Math.round(st.telemetry.ma / 5) : 0]);
+  if (sig === last) return;
+  last = sig;
+
+  const hot = new Set(), arcs = [];
+  st.findings.forEach((f) => { f.rows.forEach((r) => hot.add(r)); if (f.rows.length >= 2) arcs.push(f); });
+  let html = '', h = 172;
+
+  if (st.phase === 'scanning') {
+    html = strip(st, hot, arcs) + `<div class="msg">scanning 16 rows</div><div class="fix">checking every connection with power off</div>`;
+    h = 162;
+  } else if (st.phase === 'pass') {
+    html = strip(st, hot, arcs) + `<div class="msg">all clear</div><div class="fix">wiring matches the plan. safe to power on.</div>`;
+    h = 162;
+  } else if (faulty) {
+    const f = st.findings[0];
+    html = strip(st, hot, arcs) +
+      `<div class="msg">${esc(f.message)}</div><div class="fix"><b>fix</b> ${esc(f.fix)}</div>` +
+      (st.findings.length > 1 ? `<div class="fix" style="margin-top:6px">and ${st.findings.length - 1} more</div>` : '');
+    h = st.findings.length > 1 ? 200 : 180;
+    if (st.phase === 'cut') h = 172;
+  } else if (st.phase === 'powered') {
+    const t = st.telemetry;
+    html = `<div class="live">
+      <div><small>voltage</small><span>${(t.mv / 1000).toFixed(2)}<i>v</i></span></div>
+      <div><small>current</small><span>${Math.round(t.ma)}<i>ma</i></span></div>
+      <div><small>temp</small><span>${Math.round(t.tc)}<i>c</i></span></div></div>
+      <div class="fix" style="margin-top:10px">watching. power cuts by itself if anything goes wrong.</div>`;
+    h = 150;
+  }
+  $('bodyEl').innerHTML = html;
+  $('notch').style.setProperty('--h', h + 'px');
+}
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function connect() {
+  const es = new EventSource('/events');
+  es.onmessage = (e) => render(JSON.parse(e.data));
+  es.onerror = () => { es.close(); setTimeout(connect, 1500); };
+}
+connect();
+</script>
+</body>
+</html>
