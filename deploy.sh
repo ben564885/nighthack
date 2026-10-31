@@ -9,4 +9,4 @@ rsync -az --delete --exclude node_modules --exclude .git --exclude .claude --exc
 ssh "$HOST" 'cd /opt/breadboard && chown -R breadboard:breadboard . && su breadboard -c "npm ci --omit=dev 2>&1 | tail -1" \
   && sed -i "s#^ExecStart=.*#ExecStart=/opt/breadboard/node_modules/.bin/tsx src/server.ts#" /etc/systemd/system/smart-breadboard.service \
   && systemctl daemon-reload && systemctl restart smart-breadboard && sleep 5 && systemctl is-active smart-breadboard'
-curl -s -m 20 "https://breadboard.bennisevich.com/health"; echo
+curl -fsS -m 20 "https://breadboard.bennisevich.com/health"; echo

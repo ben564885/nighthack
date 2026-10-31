@@ -13,10 +13,18 @@ live at **https://breadboard.bennisevich.com** (digitalocean droplet, caddy for 
 | mcp for claude | `https://breadboard.bennisevich.com/mcp?key=$HUB_TOKEN` (see `.mcp.json`, set `HUB_TOKEN` in your shell) |
 | mac notch app | `mac/build.sh https://breadboard.bennisevich.com && open mac/SmartNotch.app` |
 | real arduino | on the laptop with the board: `CLOUD_URL=https://breadboard.bennisevich.com HUB_TOKEN=... npm run bridge` |
-| redeploy | `./deploy.sh` (never sends `.env`) |
+| redeploy | website: automatic on merge to main (see auto-deploy below). everything else: `./deploy.sh` (never sends `.env`) |
 | logs | `ssh root@138.68.238.172 journalctl -u smart-breadboard -f` |
 
 without the bridge the hub runs the simulator, so the demo always works.
+
+### auto-deploy (website only)
+
+`.github/workflows/deploy.yml` copies the `site/` folder (the landing page and its art) to the server on every push to main that changes it. it **only** touches the website. it never deploys or restarts the hub, the notch, the mcp tools, the texts or the board, so a merge is safe at any time, also during a demo.
+
+the workflow logs in as a limited user, `sitedeploy`, that can write `/opt/breadboard/site` and nothing else (no root, no `.env`, no service control). the key is the repo secret `DEPLOY_SSH_KEY`.
+
+changes to the product (`src/`, `notch/`, `firmware/`, ...) are not deployed by the workflow. deploy those by hand with `./deploy.sh`.
 
 ## run locally (works with no hardware)
 
