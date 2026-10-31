@@ -165,6 +165,7 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/check') return json(res, 200, await hub.checkWiring());
     if (req.method === 'POST' && url.pathname === '/api/project') return json(res, 200, await hub.loadProject(parsePlan(await readBody(req))));
     if (req.method === 'POST' && url.pathname === '/api/test') return json(res, 200, await hub.testProject());
+    if (req.method === 'POST' && url.pathname === '/api/test/pass') return json(res, 200, hub.stagePass());
     if (req.method === 'POST' && url.pathname === '/api/test/end') return json(res, 200, hub.endTest());
     if (req.method === 'POST' && url.pathname === '/api/stage') return json(res, 200, hub.stage(Boolean((await readBody(req)).on)));
     if (req.method === 'POST' && url.pathname === '/api/power-on') return json(res, 200, await hub.powerOn());

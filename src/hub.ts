@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { analyze } from './analysis.js';
 import { testWiring } from './wiring-test.js';
 import { noticeText } from './notice.js';
-import type { Board, CircuitPlan, Finding, HubState } from './types.js';
+import type { Board, CircuitPlan, Finding, HubState, Link, TestResult } from './types.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const NOTICE_PAUSE_MS = 1200;
@@ -167,8 +167,26 @@ export class Hub extends EventEmitter {
   }
 
   endTest() {
-    this.set({ test: null });
+    this.set({ test: null, staged: false, hold: false });
     return { ok: true };
+  }
+
+  /**
+   * show the project as fully wired, for a demo. like stage(), it is not read from the board, so it
+   * is marked `staged` and the notch labels it "demo". "Test again" or "Done" ends it.
+   */
+  stagePass() {
+    if (!this.state.project) throw new Error('no project loaded. ask claude to load one');
+    const { links, labels } = this.state.plan;
+    const test: TestResult = {
+      ok: true,
+      expected: links.map(([a, b]) => ({ rows: [a, b] as Link, wired: true, label: labels?.[`${a}-${b}`] })),
+      actual: links,
+      steps: [],
+      danger: null,
+    };
+    this.set({ staged: true, hold: false, test, links, phase: 'idle', findings: [] });
+    return test;
   }
 
   /**
