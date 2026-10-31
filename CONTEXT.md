@@ -162,7 +162,7 @@ Built and tested in simulation. See `README.md` for how to run.
 | Laptop bridge (`npm run bridge`) + cloud hub (token, `/mcp`) | done, tested with a fake board |
 | MCP server (`check_wiring`, `power_on`, `power_off`, `get_status`) | done, tested |
 | Text agent (Claude, tools, instant "cut power") | done, tested with sim |
-| Firmware | one sketch, ESP32 and Uno pin blocks. Uno build compiles; ESP32 build checked if noted below. **Not tested on hardware.** |
+| Firmware | one sketch, ESP32 and Uno pin blocks. Both compile (ESP32: 25% of flash). **Not tested on hardware.** |
 | Serial layer + laptop bridge (`npm run bridge`) + serial test tool (`npm run serial`) | done. Tested against a fake ESP32 on a virtual port and the production hub: handshake, check, power on, unplug fallback. **Not tested on a real ESP32.** |
 | Photon iMessage | running in production, polling with the real key. Agent number **+16283167976**. **Owner must text it once** before alerts can send. Round trip not yet tested. |
 | Phone call | code written for ElevenLabs over Photon SIP. **Not tested.** Needs a dedicated Photon number and ElevenLabs keys. |
