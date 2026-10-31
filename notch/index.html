@@ -122,6 +122,19 @@
   /* live wiring map */
   body[data-phase="idle"][data-links="true"] { --accent: var(--scan); }
   .strip .arc.link { stroke: var(--scan); }
+  .strip .arc.okarc { stroke: var(--ok); }
+  .strip .arc.bad { stroke: var(--bad); stroke-width: 2.5; }
+  .steps { list-style: none; padding: 0; margin-top: 4px; display: grid; gap: 3px; font-size: 12.5px; counter-reset: s; }
+  .steps li { display: flex; gap: 8px; color: var(--ink); counter-increment: s; }
+  .steps li::before { content: counter(s); flex: none; width: 17px; height: 17px; border-radius: 50%; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; background: rgba(255,255,255,.12); }
+  .steps li.remove::before { background: var(--bad); color: #000; }
+  .steps li.add::before { background: var(--warn); color: #000; }
+  .steps .more { color: var(--dim); padding-left: 25px; }
+  .steps .more::before { display: none; }
+  .acts { display: flex; gap: 8px; margin-top: 10px; }
+  .acts button { font: inherit; font-size: 12px; color: var(--ink); background: rgba(255,255,255,.1); border: 0; padding: 6px 13px; border-radius: 999px; cursor: pointer; transition: background .2s; }
+  .acts button:hover { background: rgba(255,255,255,.18); }
+  .acts button.primary { background: var(--scan); color: #000; font-weight: 600; }
   .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 4px; }
   .chips span { font-size: 11.5px; font-variant-numeric: tabular-nums; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--dim); }
 
@@ -201,7 +214,7 @@ function strip(state, hot, arcs, allOk = false) {
     for (let i = 0; i < a.rows.length - 1; i++) {
       const x1 = rowX(a.rows[i]), x2 = rowX(a.rows[i + 1]);
       const mid = (x1 + x2) / 2, lift = Math.max(10, Math.min(46, Math.abs(x2 - x1) * 0.55));
-      s += `<path class="arc ${a.kind === 'missing' ? 'missing' : a.kind === 'link' ? 'link' : ''}" style="animation-delay:${0.15 + i * 0.18}s" d="M${x1} 26 Q${mid} ${26 - lift} ${x2} 26"/>`;
+      s += `<path class="arc ${a.kind || ''}" style="animation-delay:${0.15 + i * 0.18}s" d="M${x1} 26 Q${mid} ${26 - lift} ${x2} 26"/>`;
     }
   }
   return s + `</svg>`;
@@ -219,9 +232,10 @@ function setOpen(v) {
   document.body.dataset.open = String(v);
   if (native) native.postMessage({ open: v });   // the app only takes clicks while open
 }
+const pinned = () => Boolean(lastState && (lastState.hold || lastState.test));
 function closeLater() {
   clearTimeout(timer);
-  timer = setTimeout(() => { if (!hovered && !(lastState && lastState.hold)) setOpen(false); }, DISMISS_MS);
+  timer = setTimeout(() => { if (!hovered && !pinned()) setOpen(false); }, DISMISS_MS);
 }
 // the native app calls this from its mouse tracker
 window.notchHover = (inside) => {
@@ -231,13 +245,19 @@ window.notchHover = (inside) => {
     if (!open && lastState) setOpen(true);
   } else if (hovered) {
     hovered = false;
-    if (!(lastState && lastState.hold)) setOpen(false);   // a held notch never closes on its own
+    if (!pinned()) setOpen(false);   // a held notch, or a test in progress, never closes on its own
   }
 };
 document.getElementById('notch').addEventListener('mouseenter', () => window.notchHover(true));
 document.getElementById('notch').addEventListener('mouseleave', () => window.notchHover(false));
 
 const DEMO = params.has('demo');
+const post = (path) => fetch(path, { method: 'POST', headers: KEY ? { 'x-hub-token': KEY } : {} }).catch(() => {});
+const ACTIONS = { test: () => post('/api/test'), done: () => post('/api/test/end') };
+$('bodyEl').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (b) ACTIONS[b.dataset.act]();
+});
 
 let last = '';
 // the notch on a real hub shows one thing: the live wiring, rescanned every half second
@@ -260,20 +280,59 @@ function renderLive(st) {
   document.body.dataset.critical = String(cut);
   document.body.dataset.links = String(n > 0);
   $('title').textContent = n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections';
-  $('meta').textContent = cut ? 'power cut' : st.power ? 'power on' : st.mode === 'sim' ? 'live · sim' : 'live';
+  $('meta').textContent = cut ? 'power cut' : st.power ? 'power on' : st.project ? st.project : st.mode === 'sim' ? 'live · sim' : 'live';
 
-  const sig = JSON.stringify(['live', links]);
+  const sig = JSON.stringify(['live', links, st.project, st.power]);
   if (sig === last) return;
   last = sig;
   $('bodyEl').innerHTML = strip(st, new Set(links.flat()), links.map(([a, b]) => ({ kind: 'link', rows: [a, b] }))) +
     (n ? `<div class="chips">${links.map(([a, b]) => `<span>${a}–${b}</span>`).join('')}</div>`
-       : `<div class="fix">wire a jumper between two rows and it shows up here</div>`);
-  $('notch').style.setProperty('--h', 34 + 76 + 28 + 12 + NH + 'px');
+       : `<div class="fix">wire a jumper between two rows and it shows up here</div>`) +
+    (st.project && !st.power ? `<div class="acts"><button class="primary" data-act="test">Test Notch</button></div>` : '');
+  $('notch').style.setProperty('--h', 34 + 76 + 28 + 12 + (st.project && !st.power ? 38 : 0) + NH + 'px');
+}
+
+// "Test Notch": the project's diagram against what is wired, and the fixes in order
+function renderTest(st) {
+  lastState = st;
+  const t = st.test;
+  const sigNow = JSON.stringify(['test', t.ok, t.steps]);
+  if (sigNow !== stateSig) {
+    stateSig = sigNow;
+    first = false;
+    setOpen(true);
+    clearTimeout(timer);
+  }
+  document.body.dataset.phase = t.ok ? 'pass' : 'fault';
+  document.body.dataset.critical = String(Boolean(t.danger));
+  $('title').textContent = t.ok ? 'wired correctly' : t.danger ? 'danger: do not plug in power' : `${t.steps.length} fix${t.steps.length === 1 ? '' : 'es'} needed`;
+  $('meta').textContent = st.project || '';
+
+  const sig = JSON.stringify(['test', t]);
+  if (sig === last) return;
+  last = sig;
+  const arcs = [
+    ...t.expected.map((e) => ({ kind: e.wired ? 'okarc' : 'missing', rows: e.rows })),
+    ...t.steps.filter((s) => s.action === 'remove').map((s) => ({ kind: 'bad', rows: s.rows })),
+  ];
+  const hot = new Set(t.steps.flatMap((s) => s.rows));
+  const MAX = 4, shown = t.steps.slice(0, MAX);
+  let html = strip(st, hot, arcs, t.ok);
+  if (t.ok) {
+    html += `<div class="msg">matches the wiring diagram</div><div class="fix">every link is in place and nothing extra touches. safe to power on.</div>`;
+  } else {
+    html += `<ol class="steps">${shown.map((s) => `<li class="${s.action}">${esc(s.text)}</li>`).join('')}` +
+      (t.steps.length > MAX ? `<li class="more">and ${t.steps.length - MAX} more</li>` : '') + `</ol>`;
+  }
+  html += `<div class="acts"><button class="primary" data-act="test">Test again</button><button data-act="done">Done</button></div>`;
+  const lines = t.ok ? 2 : shown.length + (t.steps.length > MAX ? 1 : 0);
+  $('bodyEl').innerHTML = html;
+  $('notch').style.setProperty('--h', 34 + 76 + 8 + lines * 20 + 48 + 10 + NH + 'px');
 }
 
 // the landing page loop and a staged demo fault (/api/stage) use the full fault display
 function render(st) {
-  if (!DEMO && !st.staged) return renderLive(st);
+  if (!DEMO && !st.staged) return st.test ? renderTest(st) : renderLive(st);
   lastState = st;
   const sigNow = JSON.stringify([st.phase, st.findings]);
   if (sigNow !== stateSig) {

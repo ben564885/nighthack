@@ -5,10 +5,11 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { config } from './config.js';
 import { registerTools } from './tools.js';
 
-const call = async (method: 'GET' | 'POST', path: string) => {
+const call = async (method: 'GET' | 'POST', path: string, body?: unknown) => {
   const res = await fetch(config.hubUrl + path, {
     method,
-    headers: process.env.HUB_TOKEN ? { 'x-hub-token': process.env.HUB_TOKEN } : {},
+    headers: { 'content-type': 'application/json', ...(process.env.HUB_TOKEN ? { 'x-hub-token': process.env.HUB_TOKEN } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`hub error ${res.status} from ${config.hubUrl}`);
   return res.json();
@@ -16,6 +17,8 @@ const call = async (method: 'GET' | 'POST', path: string) => {
 
 const server = new McpServer({ name: 'smart-breadboard', version: '0.1.0' });
 registerTools(server, {
+  loadProject: (plan) => call('POST', '/api/project', plan),
+  test: () => call('POST', '/api/test'),
   check: () => call('POST', '/api/check'),
   powerOn: () => call('POST', '/api/power-on'),
   powerOff: async () => void (await call('POST', '/api/power-off')),

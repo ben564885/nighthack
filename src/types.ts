@@ -8,6 +8,27 @@ export interface CircuitPlan {
   /** connections that must exist. anything else that conducts is a stray link. */
   links: Link[];
   maxMa: number;
+  /** what each link is for, keyed "a-b" with a < b, e.g. "led anode to resistor" */
+  labels?: Record<string, string>;
+}
+
+/** one thing to do on the breadboard, in order: removals first, then additions */
+export interface FixStep {
+  action: 'remove' | 'add';
+  rows: Link;
+  text: string;
+}
+
+/** a press of "Test Notch": the project's diagram against what is wired */
+export interface TestResult {
+  ok: boolean;
+  /** the wiring diagram links, each marked by whether the board has it */
+  expected: Array<{ rows: Link; wired: boolean; label?: string }>;
+  /** what the board sees now */
+  actual: Link[];
+  steps: FixStep[];
+  /** power touches ground somewhere: say so before anything else */
+  danger: string | null;
 }
 
 export interface Telemetry {
@@ -37,6 +58,10 @@ export interface HubState {
   telemetry: Telemetry;
   cutReason: string | null;
   plan: CircuitPlan;
+  /** name of a project Claude loaded (load_project), or null: then the notch only shows live wiring */
+  project: string | null;
+  /** last "Test Notch" result, kept live while the board changes. null when not testing */
+  test: TestResult | null;
   /** the notch stays open until the hold is released (demo use) */
   hold: boolean;
   /** this state was put on screen by hand for a demo, not read from the board */

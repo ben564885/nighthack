@@ -14,7 +14,7 @@ import { registerTools } from './tools.js';
 import { PhotonChannel } from './photon.js';
 import { makeAgent } from './agent.js';
 import { placeCall } from './voice.js';
-import type { Finding } from './types.js';
+import type { CircuitPlan, Finding, Link } from './types.js';
 
 const plan = loadPlan();
 // the board is the real one when the laptop bridge is connected, else the simulator.
@@ -88,7 +88,35 @@ const readBody = async (req: IncomingMessage) => {
 const authed = (req: IncomingMessage, url: URL) =>
   !token || same(String(req.headers['x-hub-token'] ?? ''), token) || same(url.searchParams.get('key') ?? '', token);
 
+/** a wiring diagram from claude or the api, checked before the hub uses it */
+function parsePlan(body: any): CircuitPlan {
+  const row = (n: unknown) => {
+    const v = Number(n);
+    if (!Number.isInteger(v) || v < 1 || v > 16) throw new Error(`rows are 1..16, got ${n}`);
+    return v;
+  };
+  const links: Link[] = [];
+  const labels: Record<string, string> = {};
+  for (const l of body.links ?? []) {
+    const a = row(Array.isArray(l) ? l[0] : l.a), b = row(Array.isArray(l) ? l[1] : l.b);
+    if (a === b) continue;
+    links.push(a < b ? [a, b] : [b, a]);
+    if (!Array.isArray(l) && l.label) labels[a < b ? `${a}-${b}` : `${b}-${a}`] = String(l.label).slice(0, 60);
+  }
+  if (!links.length) throw new Error('a project needs at least one link');
+  return {
+    name: String(body.name ?? 'project').slice(0, 40),
+    description: String(body.description ?? '').slice(0, 200),
+    rails: { vcc: row(body.rails?.vcc ?? 1), gnd: row(body.rails?.gnd ?? 2) },
+    links,
+    labels,
+    maxMa: Math.min(3000, Math.max(20, Number(body.maxMa ?? 400))),
+  };
+}
+
 const mcpApi = {
+  loadProject: (plan: unknown) => hub.loadProject(parsePlan(plan)),
+  test: () => hub.testProject(),
   check: () => hub.checkWiring(),
   powerOn: () => hub.powerOn(),
   powerOff: () => hub.powerOff('mcp'),
@@ -136,6 +164,9 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, hub.state);
     if (req.method === 'POST' && url.pathname === '/api/check') return json(res, 200, await hub.checkWiring());
+    if (req.method === 'POST' && url.pathname === '/api/project') return json(res, 200, await hub.loadProject(parsePlan(await readBody(req))));
+    if (req.method === 'POST' && url.pathname === '/api/test') return json(res, 200, await hub.testProject());
+    if (req.method === 'POST' && url.pathname === '/api/test/end') return json(res, 200, hub.endTest());
     if (req.method === 'POST' && url.pathname === '/api/stage') return json(res, 200, hub.stage(Boolean((await readBody(req)).on)));
     if (req.method === 'POST' && url.pathname === '/api/power-on') return json(res, 200, await hub.powerOn());
     if (req.method === 'POST' && url.pathname === '/api/power-off') {

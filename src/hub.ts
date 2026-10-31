@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { analyze } from './analysis.js';
+import { testWiring } from './wiring-test.js';
 import type { Board, CircuitPlan, Finding, HubState } from './types.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -33,6 +34,8 @@ export class Hub extends EventEmitter {
       telemetry: { mv: 0, ma: 0, tc: 0 },
       cutReason: null,
       plan,
+      project: null,
+      test: null,
       hold: false,
       staged: false,
       updatedAt: Date.now(),
@@ -100,7 +103,36 @@ export class Hub extends EventEmitter {
   /** a background scan only records the live links. a changed board makes the last check stale. */
   private applyScan(links: HubState['links']) {
     const n = links.length;
-    this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links });
+    // while a test is on screen, keep its steps in step with the board as the user rewires
+    const test = this.state.test ? testWiring(this.state.plan, links) : null;
+    this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links, test });
+  }
+
+  /** claude hands over a project's wiring diagram. power_on checks against it from now on */
+  loadProject(plan: CircuitPlan) {
+    return this.exclusive(async () => {
+      this.set({ plan, project: plan.name, test: null });
+      await this.board.setLimits(plan.maxMa).catch(() => {});
+      return { ok: true, project: plan.name, links: plan.links.length };
+    });
+  }
+
+  /** "Test Notch": scan, compare to the project's diagram, list the fixes in order */
+  testProject() {
+    return this.exclusive(async () => {
+      if (!this.state.project) throw new Error('no project loaded. ask claude to load one');
+      if (this.state.power) throw new Error('power is on, so the board cannot scan. cut the power first');
+      const links = await this.board.scan();
+      const test = testWiring(this.state.plan, links);
+      const n = links.length;
+      this.set({ phase: 'idle', headline: n ? `${n} connection${n === 1 ? '' : 's'}` : 'no connections', findings: [], links, test });
+      return test;
+    });
+  }
+
+  endTest() {
+    this.set({ test: null });
+    return { ok: true };
   }
 
   /**
