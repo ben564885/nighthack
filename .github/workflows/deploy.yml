@@ -1,11 +1,22 @@
-name: deploy
+name: deploy website
 
-# every push to main goes live on https://breadboard.bennisevich.com through ./deploy.sh.
-# needs the DEPLOY_SSH_KEY secret (one-time setup in README.md). run it by hand from the actions tab to redeploy.
+# every push to main that changes the website goes live on https://breadboard.bennisevich.com.
+#
+# this copies ONLY the files in site/ (the landing page and its art). it never touches the hub,
+# the notch, the mcp tools, the texts or the board, and it never restarts anything.
+# the key in DEPLOY_SSH_KEY logs in as the limited user "sitedeploy" on the droplet. that user
+# can write /opt/breadboard/site and nothing else: no root, no .env, no service control.
+# run it by hand from the actions tab to redeploy the website.
 on:
   push:
     branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 # one deploy at a time, in merge order
 concurrency:
@@ -19,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ssh key for the droplet
+      - name: ssh key for the droplet (website-only user)
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
@@ -29,8 +40,8 @@ jobs:
           # pinned droplet host key. if the droplet is rebuilt: ssh-keyscan -t ed25519 138.68.238.172
           echo '138.68.238.172 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMd0TFQplnxmYQQVTfkT6RsC6ZFzSlP9ut9YgD/eB/fa' >> ~/.ssh/known_hosts
 
-      - name: deploy
-        run: ./deploy.sh
+      - name: copy the website (site/ only, no restart)
+        run: rsync -rltz --delete --chmod=D2775,F664 -e "ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" site/ sitedeploy@138.68.238.172:/opt/breadboard/site/
 
       - name: live landing page is this commit's
         run: curl -fsS -m 20 https://breadboard.bennisevich.com/ | cmp - site/index.html
